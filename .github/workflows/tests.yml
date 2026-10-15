@@ -2,7 +2,7 @@ name: Python tests
 
 on:
   push:
-    branches: ["codex/initial-analysis-engine", "main"]
+    branches: ["codex/initial-analysis-engine", "codex/daily-single-pipeline", "main"]
   pull_request:
     branches: ["main"]
   workflow_dispatch:
