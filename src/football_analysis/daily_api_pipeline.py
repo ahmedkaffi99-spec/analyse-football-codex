@@ -82,7 +82,7 @@ def main() -> int:
     fixtures=api_get("fixtures",{"date":args.date})
     odds_first=api_get("odds",{"date":args.date,"page":"1"})
     paging=odds_first.get("paging") or {}
-    try: pages=min(10,max(1,int(paging.get("total",1))))
+    try: pages=min(50,max(1,int(paging.get("total",1))))
     except (TypeError,ValueError): pages=1
     all_odds=list(odds_first.get("response") or [])
     for page in range(2,pages+1): all_odds.extend(api_get("odds",{"date":args.date,"page":str(page)}).get("response") or [])
