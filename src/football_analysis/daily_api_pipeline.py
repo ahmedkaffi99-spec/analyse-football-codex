@@ -108,13 +108,13 @@ def build_live_report(fixtures_response: dict[str, Any], odds_response: dict[str
         "warning":"Baseline sur les cinq derniers matchs disponibles, combiné à 65 % au marché 1xBet. Modèle non encore validé par backtest; aucun résultat n'est garanti."}
 
 def render_message(report: dict[str, Any]) -> str:
-    lines = ["⚽ ANALYSE FOOTBALL CODEX — MATCHS DU JOUR",f"Date Djibouti : {report['local_date']} | Source cotes : 1xBet",f"Matchs API : {report['source_fixtures']} | Avec cotes 1xBet : {report['fixtures_with_1xbet_odds']}",""]
+    lines = ["⚽ ANALYSE FOOTBALL CODEX — MATCHS DU JOUR",f"Date Djibouti : {report['local_date']} | Source cotes : 1xBet",f"Matchs API : {report['source_fixtures']} | Cotes 1xBet : {report['fixtures_with_1xbet_odds']} | Historique : {report.get('teams_with_recent_history', 0)} équipes",""]
     legs = report.get("coupon") or []
     if not legs: lines.append("Aucune sélection éligible : pas de marché 1X2 complet 1xBet pour les matchs à venir.")
     for i, item in enumerate(legs,1):
         kickoff = datetime.fromisoformat(item["kickoff"]).astimezone(LOCAL_TZ).strftime("%H:%M")
-        lines += [f"{i}. {item['home']} – {item['away']} ({kickoff}, {item['league']})",f"   Choix 1X2 : {item['pick']} — {item['pick_label']} | Probabilité marché ajustée : {item['probability']:.0%}",f"   Cotes 1xBet : 1={item['odds_1xbet']['1']:.2f} | X={item['odds_1xbet']['x']:.2f} | 2={item['odds_1xbet']['2']:.2f}"]
-    lines += ["","⚠️ Basé sur le marché 1xBet, pas un modèle ML validé. Aucun résultat n'est garanti."]
+        lines += [f"{i}. {item['home']} – {item['away']} ({kickoff}, {item['league']})",f"   Choix 1X2 : {item['pick']} — {item['pick_label']} | Probabilité combinée : {item['probability']:.0%}",f"   Cotes 1xBet : 1={item['odds_1xbet']['1']:.2f} | X={item['odds_1xbet']['x']:.2f} | 2={item['odds_1xbet']['2']:.2f}"]
+    lines += ["","⚖️ Pondération : 65 % marché 1xBet + 35 % forme récente (Poisson). Baseline non validée par backtest; aucun résultat n'est garanti."]
     return "\n".join(lines)
 
 def main() -> int:
