@@ -45,7 +45,7 @@ def _market_1x2(odds_row: dict[str, Any]) -> dict[str, float] | None:
     return None
 
 def estimate_recent_xg(team_id: int, history_rows: list[dict[str, Any]]) -> tuple[float, float, int]:
-    """Estimate goals for/against from up to five completed recent fixtures."""
+    """Estimate goals for/against from up to ten completed recent fixtures."""
     scored, conceded = [], []
     for row in history_rows:
         status = str(((row.get("fixture") or {}).get("status") or {}).get("short") or "").upper()
@@ -60,10 +60,21 @@ def estimate_recent_xg(team_id: int, history_rows: list[dict[str, Any]]) -> tupl
     return sum(scored)/len(scored), sum(conceded)/len(conceded), len(scored)
 
 
-def build_live_report(fixtures_response: dict[str, Any], odds_response: dict[str, Any], *, histories: dict[str, list[dict[str, Any]]] | None = None, collected_stats: dict[str, Any] | None = None, max_legs: int = 8, market_weight: float = 0.65) -> dict[str, Any]:
+def _completed_matches(rows: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
+    completed = []
+    for row in rows:
+        status = str(((row.get("fixture") or {}).get("status") or {}).get("short") or "").upper()
+        goals = row.get("goals") or {}
+        if status in {"FT", "AET", "PEN"} and goals.get("home") is not None and goals.get("away") is not None:
+            completed.append(row)
+    completed.sort(key=lambda row: str((row.get("fixture") or {}).get("date") or ""), reverse=True)
+    return completed[:limit]
+
+
+def build_live_report(fixtures_response: dict[str, Any], odds_response: dict[str, Any], *, histories: dict[str, list[dict[str, Any]]] | None = None, head_to_head: dict[str, list[dict[str, Any]]] | None = None, collected_stats: dict[str, Any] | None = None, max_legs: int = 8, market_weight: float = 0.65) -> dict[str, Any]:
     if not 1 <= max_legs <= 20: raise ValueError("max_legs must be between 1 and 20")
     if not 0.0 <= market_weight <= 1.0: raise ValueError("market_weight must be between 0 and 1")
-    histories, collected_stats = histories or {}, collected_stats or {}
+    histories, head_to_head, collected_stats = histories or {}, head_to_head or {}, collected_stats or {}
     fixture_rows = fixtures_response.get("response") or []
     fixtures = _fixture_map(fixture_rows)
     raw_by_id = {str((row.get("fixture") or {}).get("id")): row for row in fixture_rows}
@@ -89,23 +100,31 @@ def build_live_report(fixtures_response: dict[str, Any], odds_response: dict[str
         norm = sum(combined.values())
         combined = {key: value/norm for key, value in combined.items()}
         pick = max(combined, key=combined.get)
+        home_history = _completed_matches(histories.get(str(home_id), []), 10) if home_id is not None else []
+        away_history = _completed_matches(histories.get(str(away_id), []), 10) if away_id is not None else []
+        h2h_history = _completed_matches(head_to_head.get(fid, []), 5)
         selected.append({**fixtures[fid], "market":"1X2", "pick":pick,
             "pick_label":{"1":"Victoire domicile","x":"Match nul","2":"Victoire extérieur"}[pick],
             "probability":round(combined[pick],4), "probabilities_combined":{k:round(v,6) for k,v in combined.items()},
             "probabilities_1xbet_normalized":{k:round(v,6) for k,v in market_probs.items()},
             "probabilities_recent_form":{k:round(v,6) for k,v in model_probs.items()},
             "recent_form_sample":{"home":hn,"away":an}, "estimated_goals":{"home":round(home_xg,3),"away":round(away_xg,3)},
+            "last_10_home_team_matches":home_history, "last_10_away_team_matches":away_history,
+            "last_5_head_to_head":h2h_history,
+            "history_coverage":{"home":len(home_history),"away":len(away_history),"head_to_head":len(h2h_history)},
             "fixture_statistics":collected_stats.get(fid,[]), "odds_1xbet":market,
-            "model":"recent_5_matches_poisson_plus_1xbet", "market_weight":market_weight})
+            "model":"recent_10_matches_poisson_plus_1xbet", "market_weight":market_weight})
     selected.sort(key=lambda x:(-x["probability"],x["kickoff"],x["match_id"]))
     selected = selected[:max_legs]
     return {"generated_at":datetime.now(timezone.utc).isoformat(),"local_date":datetime.now(LOCAL_TZ).date().isoformat(),
         "timezone":"Africa/Djibouti","source_fixtures":len(fixtures),"fixtures_with_1xbet_odds":len(odds_fixtures),
         "fixtures_with_complete_1x2":len(complete_ids),"teams_with_recent_history":sum(bool(v) for v in histories.values()),
-        "fixtures_with_statistics":sum(bool(v) for v in collected_stats.values()),"bookmaker":"1xBet",
+        "fixtures_with_statistics":sum(bool(v) for v in collected_stats.values()),
+        "head_to_head_fixtures_collected":sum(bool(v) for v in head_to_head.values()),
+        "history_policy":{"per_team_last_matches":10,"head_to_head_matches":5},"bookmaker":"1xBet",
         "model":"recent_5_matches_poisson_plus_1xbet","market_weight":market_weight,"coupon":selected,
         "status":"ready" if selected else "no_eligible_matches",
-        "warning":"Baseline sur les cinq derniers matchs disponibles, combiné à 65 % au marché 1xBet. Modèle non encore validé par backtest; aucun résultat n'est garanti."}
+        "warning":"Baseline sur les dix derniers matchs disponibles, combiné à 65 % au marché 1xBet. Modèle non encore validé par backtest; aucun résultat n'est garanti."}
 
 def render_message(report: dict[str, Any]) -> str:
     lines = ["⚽ ANALYSE FOOTBALL CODEX — MARCHÉS DU JOUR",f"Date Djibouti : {report['local_date']} | Source cotes : 1xBet",f"Matchs API : {report['source_fixtures']} | Cotes 1xBet : {report['fixtures_with_1xbet_odds']} | Historique : {report.get('teams_with_recent_history', 0)} équipes",""]
@@ -149,8 +168,17 @@ def main() -> int:
             tid=(teams.get(side) or {}).get("id")
             if tid is not None: team_ids.add(int(tid))
     histories={}
-    for tid in sorted(team_ids)[:100]:
-        histories[str(tid)]=(api_get("fixtures",{"team":str(tid),"last":"5","timezone":"Africa/Djibouti"}).get("response") or [])
+    # Bounded collection: 10 recent matches per team and 5 H2H per fixture.
+    for tid in sorted(team_ids)[:250]:
+        histories[str(tid)]=(api_get("fixtures",{"team":str(tid),"last":"10","timezone":"Africa/Djibouti"}).get("response") or [])
+    head_to_head={}
+    for row in fixture_rows:
+        fid=(row.get("fixture") or {}).get("id")
+        teams=row.get("teams") or {}
+        home_id=(teams.get("home") or {}).get("id")
+        away_id=(teams.get("away") or {}).get("id")
+        if fid is None or home_id is None or away_id is None: continue
+        head_to_head[str(fid)]=(api_get("fixtures",{"h2h":f"{home_id}-{away_id}","last":"5","timezone":"Africa/Djibouti"}).get("response") or [])
     collected_stats={}
     for row in fixture_rows[:100]:
         fid=(row.get("fixture") or {}).get("id")
