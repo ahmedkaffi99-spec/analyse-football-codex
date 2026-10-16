@@ -6,7 +6,7 @@ It normalizes bookmaker odds and preserves arbitrary API-Football market names.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import exp, factorial
+from math import exp, factorial, isfinite
 from typing import Any, Iterable
 
 
@@ -24,30 +24,38 @@ class OddsQuote:
 
 
 def implied_probability(odds: float) -> float:
-    """Raw implied probability from decimal odds."""
-    if odds <= 1:
-        raise ValueError("Decimal odds must be greater than 1")
-    return 1.0 / odds
+    """Raw implied probability from finite decimal odds greater than 1."""
+    try:
+        value = float(odds)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Decimal odds must be a finite number greater than 1") from exc
+    if not isfinite(value) or value <= 1:
+        raise ValueError("Decimal odds must be a finite number greater than 1")
+    return 1.0 / value
 
 
 def normalize_implied_probabilities(odds_by_selection: dict[str, float]) -> dict[str, float]:
     """Remove the bookmaker overround by normalizing implied probabilities."""
     if not odds_by_selection:
         return {}
-    raw = {key: implied_probability(float(value)) for key, value in odds_by_selection.items()}
+    raw = {key: implied_probability(value) for key, value in odds_by_selection.items()}
     total = sum(raw.values())
-    if total <= 0:
-        raise ValueError("Odds do not produce a positive implied probability sum")
+    if not isfinite(total) or total <= 0:
+        raise ValueError("Odds do not produce a finite positive implied probability sum")
     return {key: value / total for key, value in raw.items()}
 
 
 def poisson_distribution(expected_goals: float, max_goals: int = 10) -> list[float]:
     """Return a truncated Poisson score distribution normalized to sum to one."""
-    if expected_goals < 0:
-        raise ValueError("Expected goals cannot be negative")
-    if max_goals < 1:
-        raise ValueError("max_goals must be at least 1")
-    values = [exp(-expected_goals) * expected_goals**n / factorial(n) for n in range(max_goals + 1)]
+    try:
+        rate = float(expected_goals)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Expected goals must be a finite non-negative number") from exc
+    if not isfinite(rate) or rate < 0:
+        raise ValueError("Expected goals must be a finite non-negative number")
+    if isinstance(max_goals, bool) or not isinstance(max_goals, int) or max_goals < 1:
+        raise ValueError("max_goals must be a positive integer")
+    values = [exp(-rate) * rate**n / factorial(n) for n in range(max_goals + 1)]
     total = sum(values)
     return [p / total for p in values]
 
@@ -77,10 +85,13 @@ def poisson_market_probabilities(home_xg: float, away_xg: float, max_goals: int 
                 btts_yes += p
             totals[h + a] += p
             correct_scores[f"{h}-{a}"] = p
+
     def over(line: float) -> float:
         return sum(p for goals, p in enumerate(totals) if goals > line)
+
     def under(line: float) -> float:
         return sum(p for goals, p in enumerate(totals) if goals < line)
+
     result: dict[str, Any] = {
         "1x2": {"home": p_home, "draw": p_draw, "away": p_away},
         "double_chance": {
@@ -93,7 +104,7 @@ def poisson_market_probabilities(home_xg: float, away_xg: float, max_goals: int 
             str(line): {"over": over(line), "under": under(line)}
             for line in (0.5, 1.5, 2.5, 3.5, 4.5)
         },
-        "expected_goals": {"home": home_xg, "away": away_xg},
+        "expected_goals": {"home": float(home_xg), "away": float(away_xg)},
         "correct_scores": correct_scores,
     }
     return result
@@ -122,12 +133,14 @@ def flatten_api_football_odds(
                         odd = float(str(raw_odds).strip())
                     except (TypeError, ValueError):
                         continue
-                    if odd <= 1:
+                    if not isfinite(odd) or odd <= 1:
                         continue
                     point = value.get("handicap")
                     try:
                         point_value = float(point) if point is not None else None
                     except (TypeError, ValueError):
+                        point_value = None
+                    if point_value is not None and not isfinite(point_value):
                         point_value = None
                     quotes.append(OddsQuote(
                         fixture_id=str(fixture_id),
