@@ -75,12 +75,15 @@ def _completed_matches(rows: list[dict[str, Any]], limit: int) -> list[dict[str,
 
 
 STAT_ALIASES = {
-    "total shots": "shots", "shots": "shots",
-    "shots on goal": "shots_on_target", "shots on target": "shots_on_target",
-    "corner kicks": "corners", "corners": "corners",
-    "yellow cards": "yellow_cards", "red cards": "red_cards",
-    "fouls": "fouls", "ball possession": "possession_pct",
-    "expected goals": "xg", "offsides": "offsides",
+    "total shots": "shots", "shots": "shots", "shots off goal": "shots_off_target",
+    "blocked shots": "shots_blocked", "shots insidebox": "shots_inside_box",
+    "shots inside box": "shots_inside_box", "shots outsidebox": "shots_outside_box",
+    "shots outside box": "shots_outside_box", "shots on goal": "shots_on_target",
+    "shots on target": "shots_on_target", "corner kicks": "corners", "corners": "corners",
+    "yellow cards": "yellow_cards", "red cards": "red_cards", "fouls": "fouls",
+    "ball possession": "possession_pct", "expected goals": "xg", "offsides": "offsides",
+    "total passes": "passes", "passes accurate": "passes_accurate", "goalkeeper saves": "saves",
+    "big chances": "big_chances", "big chances missed": "big_chances_missed",
 }
 
 
@@ -114,7 +117,7 @@ def summarize_last_ten(team_id: int, history_rows: list[dict[str, Any]],
     metrics: dict[str, list[float]] = {
         key: [] for key in ("goals_for", "goals_against", "shots", "shots_on_target",
                             "corners", "yellow_cards", "red_cards", "fouls",
-                            "possession_pct", "xg", "offsides")
+                            "possession_pct", "xg", "offsides", "shots_off_target", "shots_blocked", "shots_inside_box", "shots_outside_box", "passes", "passes_accurate", "saves", "big_chances", "big_chances_missed")
     }
     for row in rows:
         fixture = row.get("fixture") or {}
@@ -180,8 +183,14 @@ def build_live_report(fixtures_response: dict[str, Any], odds_response: dict[str
         home_history = _completed_matches(histories.get(str(home_id), []), 10) if home_id is not None else []
         away_history = _completed_matches(histories.get(str(away_id), []), 10) if away_id is not None else []
         h2h_history = _completed_matches(head_to_head.get(fid, []), 5)
+        home_history = _completed_matches(histories.get(str(home_id), []), 10) if home_id is not None else []
+        away_history = _completed_matches(histories.get(str(away_id), []), 10) if away_id is not None else []
+        h2h_history = _completed_matches(head_to_head.get(fid, []), 5)
+        home_averages = summarize_last_ten(int(home_id), home_history, history_stats) if home_id is not None else {}
+        away_averages = summarize_last_ten(int(away_id), away_history, history_stats) if away_id is not None else {}
         market_family_predictions = score_market_predictions(
-            row, model_1x2=combined, home_xg=home_xg, away_xg=away_xg)
+            row, model_1x2=combined, home_xg=home_xg, away_xg=away_xg,
+            market_stats={"home": home_averages, "away": away_averages})
         selected_odds = market[pick]
         selected_market_probability = market_probs[pick]
         selected_edge = combined[pick] - selected_market_probability
@@ -200,8 +209,7 @@ def build_live_report(fixtures_response: dict[str, Any], odds_response: dict[str
             "recent_form_sample":{"home":hn,"away":an}, "estimated_goals":{"home":round(home_xg,3),"away":round(away_xg,3)},
             "last_10_home_team_matches":home_history, "last_10_away_team_matches":away_history,
             "last_5_head_to_head":h2h_history,
-            "history_averages":{"home":summarize_last_ten(int(home_id), home_history, history_stats) if home_id is not None else {},
-                                "away":summarize_last_ten(int(away_id), away_history, history_stats) if away_id is not None else {}},
+            "history_averages":{"home":home_averages,"away":away_averages},
             "history_coverage":{"home":len(home_history),"away":len(away_history),"head_to_head":len(h2h_history)},
             "fixture_statistics":collected_stats.get(fid,[]), "odds_1xbet":market,
             "model":"recent_10_matches_poisson_plus_1xbet", "market_weight":market_weight})
