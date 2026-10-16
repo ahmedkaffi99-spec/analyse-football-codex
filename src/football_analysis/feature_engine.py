@@ -114,6 +114,8 @@ def build_team_features(
             stats = dict(own_stats) if stats_are_available else {}
             if stats_are_available:
                 stats.update({f"against_{key}": value for key, value in opp_stats.items()})
+            if stats_are_available and stats.get("xga") is None:
+                stats["xga"] = opp_stats.get("xg")
             record = {"goals_for": float(goals_for), "goals_against": float(goals_against), **stats}
             team_rows.append((row, record, is_home))
             if (side == "home" and is_home) or (side == "away" and is_away):
