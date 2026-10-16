@@ -110,7 +110,7 @@ def build_live_report(fixtures_response: dict[str, Any], odds_response: dict[str
 def render_message(report: dict[str, Any]) -> str:
     lines = ["⚽ ANALYSE FOOTBALL CODEX — MARCHÉS DU JOUR",f"Date Djibouti : {report['local_date']} | Source cotes : 1xBet",f"Matchs API : {report['source_fixtures']} | Cotes 1xBet : {report['fixtures_with_1xbet_odds']} | Historique : {report.get('teams_with_recent_history', 0)} équipes",""]
     legs = report.get("coupon") or []
-    if not legs: lines.append("Aucun marché éligible disponible chez 1xBet pour les matchs à venir.")
+    if not legs: lines.append("Aucune sélection : aucun marché éligible disponible chez 1xBet pour les matchs à venir.")
     for i, item in enumerate(legs,1):
         kickoff = datetime.fromisoformat(item["kickoff"]).astimezone(LOCAL_TZ).strftime("%H:%M")
         lines.append(f"{i}. {item['home']} – {item['away']} ({kickoff}, {item['league']})")
