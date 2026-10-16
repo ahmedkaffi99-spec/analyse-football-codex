@@ -85,13 +85,13 @@ def collect(date: str, *, max_pages: int = 50) -> dict[str, Any]:
     payload = [{
         "provider": "api-football",
         "fixture_id": quote.fixture_id,
-        "bookmaker_id": quote.bookmaker_id,
+        "bookmaker_id": quote.bookmaker_id or "unknown",
         "bookmaker_name": quote.bookmaker_name,
-        "market_id": quote.market_id,
+        "market_id": quote.market_id or "unknown",
         "market_name": quote.market_name,
         "selection": quote.selection,
         "odds": quote.odds,
-        "point": quote.point,
+        "point": quote.point if quote.point is not None else -999,
         "captured_at": quote.captured_at,
         "raw_payload": {
             "fixture_id": quote.fixture_id,
