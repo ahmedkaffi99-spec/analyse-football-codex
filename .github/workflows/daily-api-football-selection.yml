@@ -26,7 +26,7 @@ jobs:
       API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      SEND_TELEGRAM: ${{ inputs.send_telegram || 'false' }}
+      SEND_TELEGRAM: ${{ github.event_name == 'schedule' || inputs.send_telegram == true }}
       MATCH_DATE: ${{ inputs.match_date }}
     steps:
       - name: Checkout isolated branch
