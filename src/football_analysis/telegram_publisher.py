@@ -1,4 +1,4 @@
-"""Explicit opt-in Telegram delivery for a generated preview.
+"""Telegram delivery with automatic chunking for long reports.
 
 Default mode is dry-run. Real sending requires --send and both Telegram secrets.
 """
@@ -13,11 +13,41 @@ from urllib.request import Request, urlopen
 
 from .daily_pipeline import render_telegram_message
 
+# Telegram sendMessage limit is 4096 characters. Leave margin for Unicode/entities.
+MAX_MESSAGE_LENGTH = 3800
 
-def send_message(text: str, *, token: str, chat_id: str, timeout: int = 15) -> dict:
-    if not token.strip() or not chat_id.strip():
-        raise ValueError("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are required")
-    payload = json.dumps({"chat_id": chat_id, "text": text, "disable_web_page_preview": True}).encode()
+
+def split_message(text: str, limit: int = MAX_MESSAGE_LENGTH) -> list[str]:
+    """Split a long report into readable chunks without losing any characters."""
+    if limit < 100:
+        raise ValueError("limit must be at least 100 characters")
+    remaining = text.strip()
+    if not remaining:
+        return []
+    chunks: list[str] = []
+    while len(remaining) > limit:
+        boundary = remaining.rfind("\n", 0, limit + 1)
+        if boundary < limit // 2:
+            boundary = remaining.rfind(" ", 0, limit + 1)
+        if boundary < limit // 2:
+            boundary = limit
+        chunk = remaining[:boundary].rstrip()
+        if not chunk:
+            chunk = remaining[:limit]
+            boundary = limit
+        chunks.append(chunk)
+        remaining = remaining[boundary:].lstrip()
+    if remaining:
+        chunks.append(remaining)
+    return chunks
+
+
+def _send_one(text: str, *, token: str, chat_id: str, timeout: int) -> dict:
+    payload = json.dumps({
+        "chat_id": chat_id,
+        "text": text,
+        "disable_web_page_preview": True,
+    }).encode("utf-8")
     request = Request(
         f"https://api.telegram.org/bot{token}/sendMessage",
         data=payload,
@@ -28,18 +58,37 @@ def send_message(text: str, *, token: str, chat_id: str, timeout: int = 15) -> d
         with urlopen(request, timeout=timeout) as response:
             result = json.loads(response.read().decode("utf-8"))
     except HTTPError as exc:
-        # Preserve Telegram's diagnostic response (e.g. message too long or bad chat_id)
-        # without logging the bot token or request URL.
         try:
             detail = exc.read().decode("utf-8", errors="replace")[:500]
         except Exception:
             detail = ""
-        raise RuntimeError(f"Telegram delivery failed: HTTP {exc.code}; response={detail}") from exc
+        raise RuntimeError(
+            f"Telegram delivery failed: HTTP {exc.code}; response={detail}"
+        ) from exc
     except (URLError, TimeoutError) as exc:
         raise RuntimeError(f"Telegram delivery failed: {type(exc).__name__}") from exc
     if not result.get("ok"):
         raise RuntimeError(f"Telegram API rejected message: {result!r}")
     return result
+
+
+def send_message(text: str, *, token: str, chat_id: str, timeout: int = 15) -> dict:
+    """Send a short message once, or a long report as ordered Telegram messages."""
+    if not token.strip() or not chat_id.strip():
+        raise ValueError("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are required")
+    chunks = split_message(text)
+    if not chunks:
+        raise ValueError("Telegram message is empty")
+    results = []
+    for index, chunk in enumerate(chunks, start=1):
+        result = _send_one(chunk, token=token, chat_id=chat_id, timeout=timeout)
+        results.append(result)
+        print(
+            f"Telegram message {index}/{len(chunks)} envoyé : "
+            f"message_id={result['result']['message_id']}"
+        )
+    # Preserve the legacy response shape expected by the daily pipeline.
+    return {"ok": True, "result": results[-1]["result"], "messages": results}
 
 
 def main() -> int:
@@ -56,7 +105,7 @@ def main() -> int:
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
     result = send_message(message, token=token, chat_id=chat_id)
-    print(f"Message Telegram envoyé. message_id={result['result']['message_id']}")
+    print(f"Livraison Telegram terminée : {len(result['messages'])} message(s).")
     return 0
 
 
