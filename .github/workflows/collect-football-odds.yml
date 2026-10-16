@@ -1,0 +1,54 @@
+name: Collect API-Football odds snapshots
+
+on:
+  workflow_dispatch:
+    inputs:
+      odds_date:
+        description: "UTC date to collect odds for (YYYY-MM-DD; empty means today)"
+        required: false
+        type: string
+  schedule:
+    - cron: "15 */4 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: football-odds-collector
+  cancel-in-progress: false
+
+jobs:
+  collect-odds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      ODDS_DATE: ${{ inputs.odds_date }}
+    steps:
+      - name: Checkout isolated project branch
+        uses: actions/checkout@v4
+        with:
+          ref: codex/daily-single-pipeline
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in API_FOOTBALL_KEY SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing required GitHub Actions secret: $name"
+              exit 1
+            fi
+          done
+          if [ -z "${ODDS_DATE:-}" ]; then
+            echo "ODDS_DATE=$(date -u +%F)" >> "$GITHUB_ENV"
+          fi
+      - name: Install package
+        run: python -m pip install .
+      - name: Collect all available odds markets
+        run: python -m football_analysis.collect_odds
