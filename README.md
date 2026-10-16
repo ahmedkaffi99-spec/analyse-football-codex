@@ -43,3 +43,13 @@ The chronological backtest uses verified `finished_at` timestamps when supplied.
 For baseline comparison, use `compare_baselines(predictions, results, odds_snapshots)`. It compares model probabilities against a uniform 1/3 baseline and normalized implied market probabilities, using only odds available at prediction time. Inspect `BaselineComparison.sample_size` and `market_sample_size` before interpreting scores.
 
 The historical schema checklist is in [docs/historical-schema-audit.md](docs/historical-schema-audit.md). No Supabase query is run by this codebase; the real schema must be verified before any table-specific SQL or historical-data import.
+
+
+## Ten-model data foundation (offline proposal)
+
+- Provider comparison: [docs/api-provider-matrix.md](docs/api-provider-matrix.md). This is a documentation-based shortlist, not a live coverage test or purchase decision.
+- Proposed normalized schema: [docs/database-schema.md](docs/database-schema.md) and [migrations/0001_research_schema.sql](migrations/0001_research_schema.sql). The SQL is a draft and has **not** been applied to Supabase.
+- Model-specific data requirements: [docs/model-data-contract.md](docs/model-data-contract.md).
+- Point-in-time rolling feature engine: `football_analysis.feature_engine`. It uses only supplied history, filters by final-whistle time and stat availability time, keeps missing stats as `None`, and emits quality flags. It has no network or database access.
+
+The first feature version covers rolling goals and available xG, shots, corners and card stats with overall and venue-specific windows. Elo, standings, injuries and provider ingestion remain later tasks and must be added with explicit point-in-time provenance.
