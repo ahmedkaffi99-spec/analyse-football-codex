@@ -23,7 +23,7 @@ class FeatureEngineTests(unittest.TestCase):
             row(2, "C", "A", 1, 1, day=2, stats_at=BASE + timedelta(days=7, hours=4),
                 hs={"corners": 4, "xg": 1.1}, aws={"corners": 5, "xg": 1.2}),
             row(3, "A", "C", 9, 0, day=5, stats_at=BASE + timedelta(days=5, hours=4),
-                hs={"corners": 12, "xg": 4.0}, aws={"corners": 1, "xg": .1}),
+                hs={"corners": 12, "xg": 4.0}, aws={"corners": 1, "xg": .1}, finished_hour=26),
         ]
         target_kickoff = BASE + timedelta(days=6)
         generated_at = target_kickoff - timedelta(hours=1)
@@ -51,7 +51,7 @@ class FeatureEngineTests(unittest.TestCase):
         )
         self.assertEqual(snap.features["home_venue_goals_for_avg_5"], 2.0)
         self.assertEqual(snap.features["away_goals_for_avg_5"], 0.0)
-        self.assertIsNone(snap.features["away_corners_avg_5"])
+        self.assertEqual(snap.features["away_corners_avg_5"], 3.0)
 
     def test_rejects_bad_time_duplicate_ids_and_invalid_windows(self):
         kickoff = BASE + timedelta(days=4)
