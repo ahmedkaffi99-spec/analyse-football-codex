@@ -1,0 +1,62 @@
+name: Live daily football pipeline
+
+on:
+  push:
+    branches: ["codex/daily-single-pipeline"]
+    paths:
+      - ".github/workflows/live-daily-pipeline.yml"
+      - "src/football_analysis/live_daily.py"
+  workflow_dispatch:
+    inputs:
+      match_date:
+        description: "Date of fixtures in UTC (YYYY-MM-DD); empty means today"
+        required: false
+        type: string
+  schedule:
+    - cron: "0 10 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-daily-football
+  cancel-in-progress: false
+
+jobs:
+  live-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      MATCH_DATE: ${{ inputs.match_date }}
+    steps:
+      - name: Checkout isolated pipeline branch
+        uses: actions/checkout@v4
+        with:
+          ref: codex/daily-single-pipeline
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in API_FOOTBALL_KEY TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing required GitHub Actions secret: $name"
+              exit 1
+            fi
+          done
+          if [ -z "${MATCH_DATE:-}" ]; then
+            echo "MATCH_DATE=$(date -u +%F)" >> "$GITHUB_ENV"
+          fi
+      - name: Install package
+        run: python -m pip install .
+      - name: Execute API-Football -> Supabase -> Telegram
+        run: python -m football_analysis.live_daily
