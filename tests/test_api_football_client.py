@@ -87,7 +87,7 @@ class ApiFootballClientTests(unittest.TestCase):
     def test_does_not_retry_authentication_failure(self):
         calls = []
 
-        def opener(_request, _timeout):
+        def opener(_request, timeout=None):
             calls.append(1)
             headers = Message()
             raise urllib.error.HTTPError("https://example.test", 401, "unauthorized", headers, io.BytesIO(b""))
