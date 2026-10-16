@@ -31,6 +31,8 @@ jobs:
     timeout-minutes: 20
     env:
       API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       MATCH_DATE: ${{ inputs.match_date }}
@@ -48,6 +50,8 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$API_FOOTBALL_KEY" || { echo "::error::Missing API_FOOTBALL_KEY repository secret"; exit 1; }
+          test -n "$SUPABASE_URL" || { echo "::error::Missing SUPABASE_URL repository secret"; exit 1; }
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::Missing SUPABASE_SERVICE_ROLE_KEY repository secret"; exit 1; }
           if [ "$SEND_TELEGRAM" = "true" ]; then
             test -n "$TELEGRAM_BOT_TOKEN" || { echo "::error::Missing TELEGRAM_BOT_TOKEN repository secret"; exit 1; }
             test -n "$TELEGRAM_CHAT_ID" || { echo "::error::Missing TELEGRAM_CHAT_ID repository secret"; exit 1; }
@@ -71,6 +75,7 @@ jobs:
           name: daily-football-analysis
           path: artifacts/daily_analysis.json
           if-no-files-found: error
+          if: always()
           retention-days: 14
 
 # Full historical fixture-stat collection is enabled by default (0 = no local cap).
