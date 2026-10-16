@@ -13,6 +13,7 @@
 - `feature_snapshots`: model-specific feature payload computed at a recorded cutoff, with feature schema version.
 - `model_runs` and `predictions`: model/version/config and probability output.
 - `settled_predictions`: actual outcome, settlement rule, profit convention and evaluation state.
+- `research_ingestion_runs`: provider/dataset run status, record counts, error summary and source manifest for auditability.
 
 ## Market ownership
 
