@@ -6,6 +6,9 @@ on:
       - codex/daily-single-pipeline
     paths:
       - .github/workflows/daily-api-football-selection.yml
+      - src/football_analysis/telegram_publisher.py
+      - src/football_analysis/daily_api_pipeline.py
+      - src/football_analysis/supabase_persistence.py
   workflow_dispatch:
     inputs:
       match_date:
