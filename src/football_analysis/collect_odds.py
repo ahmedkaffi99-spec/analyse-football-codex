@@ -42,33 +42,10 @@ def api_get(path: str, params: dict[str, str]) -> dict[str, Any]:
     return _resilient_api_get(path, params)
 
 
-def supabase_request(table: str, payload: Any, params: str = "", prefer: str = "return=minimal") -> Any:
-    base = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
-    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
-    if not base or not key:
-        raise RuntimeError("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY")
-    url = f"{base}/rest/v1/{table}" + (f"?{params}" if params else "")
-    request = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "apikey": key,
-            "Authorization": f"Bearer {key}",
-            "Content-Type": "application/json",
-            "Prefer": prefer,
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            raw = response.read().decode("utf-8")
-            return json.loads(raw) if raw else None
-    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
-        raise RuntimeError(f"Supabase write to {table} failed: {exc}") from exc
-
-
 def collect(date: str, *, max_pages: int = 50) -> dict[str, Any]:
-    """Collect 1xBet odds from all available pages and persist snapshots."""
+    """Fetch 1xBet quotes from API-Football; return data without external writes."""
+    if max_pages < 1:
+        raise ValueError("max_pages must be at least 1")
     captured_at = datetime.now(timezone.utc).isoformat()
     all_rows: list[dict[str, Any]] = []
     page = 1
@@ -85,57 +62,51 @@ def collect(date: str, *, max_pages: int = 50) -> dict[str, Any]:
         if not rows:
             break
         page += 1
-
     target_rows = only_target_bookmaker(all_rows)
     quotes = flatten_api_football_odds(target_rows, captured_at=captured_at)
-    payload = [{
-        "provider": "api-football",
-        "fixture_id": quote.fixture_id,
-        "bookmaker_id": quote.bookmaker_id or "unknown",
-        "bookmaker_name": quote.bookmaker_name,
-        "market_id": quote.market_id or "unknown",
-        "market_name": quote.market_name,
-        "selection": quote.selection,
-        "odds": quote.odds,
-        "point": quote.point if quote.point is not None else -999,
-        "captured_at": quote.captured_at,
-        "raw_payload": {
-            "fixture_id": quote.fixture_id,
-            "bookmaker_id": quote.bookmaker_id,
-            "market_id": quote.market_id,
-            "market_name": quote.market_name,
-            "selection": quote.selection,
-            "odds": quote.odds,
-            "point": quote.point,
-        },
-    } for quote in quotes]
-
-    inserted = 0
-    for start in range(0, len(payload), 100):
-        batch = payload[start:start + 100]
-        supabase_request(
-            "football_odds",
-            batch,
-            params="on_conflict=provider,fixture_id,bookmaker_id,market_id,selection,point,captured_at",
-            prefer="resolution=ignore-duplicates,return=minimal",
-        )
-        inserted += len(batch)
     return {
         "date": date,
-        "pages_fetched": min(page - 1, max_pages),
-        "fixtures_with_odds": len({row.get("fixture", {}).get("id") for row in target_rows if row.get("fixture", {}).get("id") is not None}),
-        "quotes_seen": len(quotes),
-        "quotes_sent_to_supabase": inserted,
+        "provider": "api-football",
         "bookmaker": "1xBet",
         "captured_at": captured_at,
+        "pages_fetched": min(page - 1, max_pages),
+        "provider_pages_reported": total_pages,
+        "fixtures_with_odds": len({
+            row.get("fixture", {}).get("id")
+            for row in target_rows
+            if row.get("fixture", {}).get("id") is not None
+        }),
+        "quotes_seen": len(quotes),
         "truncated_at_max_pages": total_pages > max_pages,
+        "quotes": [
+            {
+                "fixture_id": q.fixture_id,
+                "bookmaker_id": q.bookmaker_id,
+                "bookmaker_name": q.bookmaker_name,
+                "market_id": q.market_id,
+                "market_name": q.market_name,
+                "selection": q.selection,
+                "odds": q.odds,
+                "point": q.point,
+                "captured_at": q.captured_at,
+            }
+            for q in quotes
+        ],
     }
 
 
 def main() -> int:
     date = os.environ.get("ODDS_DATE", datetime.now(timezone.utc).date().isoformat())
+    output = os.environ.get("ODDS_OUTPUT_PATH", f"artifacts/odds_snapshots_{date}.json")
     try:
-        print(json.dumps(collect(date), ensure_ascii=False))
+        report = collect(date)
+        from pathlib import Path
+        output_path = Path(output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps({key: value for key, value in report.items() if key != "quotes"}, ensure_ascii=False))
+        print(f"Local artifact saved: {output_path}")
+        print("No Supabase write or Telegram publication performed.")
         return 0
     except Exception as exc:
         print(f"ODDS_COLLECTION_FAILED: {exc}", file=sys.stderr)
