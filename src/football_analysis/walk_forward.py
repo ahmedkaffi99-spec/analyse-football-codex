@@ -50,7 +50,12 @@ def walk_forward_backtest(
     results: list[MatchResult] = []
     skipped: list[str] = []
     for target in rows:
-        history = [row for row in rows if row.kickoff < target.kickoff]
+        generated_at = target.kickoff - prediction_lead
+        # Conservative completion proxy: a prior match must have kicked off at
+        # least three hours before prediction generation; actual final-whistle
+        # timestamps should replace this proxy when verified data is available.
+        history_cutoff = generated_at - timedelta(hours=3)
+        history = [row for row in rows if row.kickoff < history_cutoff]
         if len(history) < min_train_matches:
             skipped.append(target.match_id)
             continue
@@ -61,7 +66,6 @@ def walk_forward_backtest(
             # Insufficient or degenerate history/team coverage: no fabricated prediction.
             skipped.append(target.match_id)
             continue
-        generated_at = target.kickoff - prediction_lead
         probabilities = poisson_1x2(home_xg, away_xg)
         predictions.append(Prediction(target.match_id, generated_at, probabilities))
         results.append(MatchResult(target.match_id, target.kickoff, target.home_goals, target.away_goals))
