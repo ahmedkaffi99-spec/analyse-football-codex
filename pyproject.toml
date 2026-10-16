@@ -7,7 +7,7 @@ name = "analyse-football-codex"
 version = "0.1.0"
 description = "Independent, offline-first football probability evaluation and backtesting core"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["tzdata>=2024.1"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
