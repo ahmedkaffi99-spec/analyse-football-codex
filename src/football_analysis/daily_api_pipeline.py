@@ -108,13 +108,22 @@ def build_live_report(fixtures_response: dict[str, Any], odds_response: dict[str
         "warning":"Baseline sur les cinq derniers matchs disponibles, combiné à 65 % au marché 1xBet. Modèle non encore validé par backtest; aucun résultat n'est garanti."}
 
 def render_message(report: dict[str, Any]) -> str:
-    lines = ["⚽ ANALYSE FOOTBALL CODEX — MATCHS DU JOUR",f"Date Djibouti : {report['local_date']} | Source cotes : 1xBet",f"Matchs API : {report['source_fixtures']} | Cotes 1xBet : {report['fixtures_with_1xbet_odds']} | Historique : {report.get('teams_with_recent_history', 0)} équipes",""]
+    lines = ["⚽ ANALYSE FOOTBALL CODEX — MARCHÉS DU JOUR",f"Date Djibouti : {report['local_date']} | Source cotes : 1xBet",f"Matchs API : {report['source_fixtures']} | Cotes 1xBet : {report['fixtures_with_1xbet_odds']} | Historique : {report.get('teams_with_recent_history', 0)} équipes",""]
     legs = report.get("coupon") or []
-    if not legs: lines.append("Aucune sélection éligible : pas de marché 1X2 complet 1xBet pour les matchs à venir.")
+    if not legs: lines.append("Aucun marché éligible disponible chez 1xBet pour les matchs à venir.")
     for i, item in enumerate(legs,1):
         kickoff = datetime.fromisoformat(item["kickoff"]).astimezone(LOCAL_TZ).strftime("%H:%M")
-        lines += [f"{i}. {item['home']} – {item['away']} ({kickoff}, {item['league']})",f"   Choix 1X2 : {item['pick']} — {item['pick_label']} | Probabilité combinée : {item['probability']:.0%}",f"   Cotes 1xBet : 1={item['odds_1xbet']['1']:.2f} | X={item['odds_1xbet']['x']:.2f} | 2={item['odds_1xbet']['2']:.2f}"]
-    lines += ["","⚖️ Pondération : 65 % marché 1xBet + 35 % forme récente (Poisson). Baseline non validée par backtest; aucun résultat n'est garanti."]
+        lines.append(f"{i}. {item['home']} – {item['away']} ({kickoff}, {item['league']})")
+        if item.get("odds_1xbet"):
+            lines.append(f"   1X2 : {item['pick']} — probabilité combinée {item['probability']:.0%} | cotes 1={item['odds_1xbet']['1']:.2f}, X={item['odds_1xbet']['x']:.2f}, 2={item['odds_1xbet']['2']:.2f}")
+        markets = item.get("markets") or []
+        if markets:
+            for market in markets:
+                line = f" ligne {market['line']}" if market.get("line") is not None else ""
+                lines.append(f"   {market['market']}{line} : {market['selection']} | cote {market['odds']:.2f} | prob. marché {market['probability']:.0%}")
+        else:
+            lines.append("   Aucun autre marché reconnu fourni pour ce match.")
+    lines += ["", "Marchés selon disponibilité 1xBet : 1X2, double chance, buts, BTTS (les deux équipes marquent), handicap, corners, tirs et cartons jaunes.", "⚖️ Le 1X2 combine 65 % marché + 35 % forme récente (Poisson). Les autres probabilités sont normalisées depuis les cotes 1xBet; modèle non validé par backtest, aucun résultat garanti."]
     return "\n".join(lines)
 
 def main() -> int:
