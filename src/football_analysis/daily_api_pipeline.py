@@ -11,6 +11,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 from .collect_odds import api_get, is_target_bookmaker, only_target_bookmaker
 from .markets import normalize_implied_probabilities
+from .poisson import poisson_1x2
 from .telegram_publisher import send_message
 
 LOCAL_TZ = ZoneInfo("Asia/Djibouti")
@@ -43,9 +44,29 @@ def _market_1x2(odds_row: dict[str, Any]) -> dict[str, float] | None:
             if set(values) == {"1","x","2"}: return values
     return None
 
-def build_live_report(fixtures_response: dict[str, Any], odds_response: dict[str, Any], *, max_legs: int = 8) -> dict[str, Any]:
+def estimate_recent_xg(team_id: int, history_rows: list[dict[str, Any]]) -> tuple[float, float, int]:
+    """Estimate goals for/against from up to five completed recent fixtures."""
+    scored, conceded = [], []
+    for row in history_rows:
+        status = str(((row.get("fixture") or {}).get("status") or {}).get("short") or "").upper()
+        if status not in {"FT", "AET", "PEN"}: continue
+        teams, goals = row.get("teams") or {}, row.get("goals") or {}
+        home_id, away_id = (teams.get("home") or {}).get("id"), (teams.get("away") or {}).get("id")
+        hg, ag = goals.get("home"), goals.get("away")
+        if hg is None or ag is None: continue
+        if home_id == team_id: scored.append(float(hg)); conceded.append(float(ag))
+        elif away_id == team_id: scored.append(float(ag)); conceded.append(float(hg))
+    if not scored: return 1.25, 1.25, 0
+    return sum(scored)/len(scored), sum(conceded)/len(conceded), len(scored)
+
+
+def build_live_report(fixtures_response: dict[str, Any], odds_response: dict[str, Any], *, histories: dict[str, list[dict[str, Any]]] | None = None, collected_stats: dict[str, Any] | None = None, max_legs: int = 8, market_weight: float = 0.65) -> dict[str, Any]:
     if not 1 <= max_legs <= 20: raise ValueError("max_legs must be between 1 and 20")
-    fixtures = _fixture_map(fixtures_response.get("response") or [])
+    if not 0.0 <= market_weight <= 1.0: raise ValueError("market_weight must be between 0 and 1")
+    histories, collected_stats = histories or {}, collected_stats or {}
+    fixture_rows = fixtures_response.get("response") or []
+    fixtures = _fixture_map(fixture_rows)
+    raw_by_id = {str((row.get("fixture") or {}).get("id")): row for row in fixture_rows}
     odds_rows = only_target_bookmaker(odds_response.get("response") or [])
     selected, odds_fixtures, complete_ids = [], set(), set()
     for row in odds_rows:
@@ -55,12 +76,36 @@ def build_live_report(fixtures_response: dict[str, Any], odds_response: dict[str
         market = _market_1x2(row)
         if not market: continue
         complete_ids.add(fid)
-        probs = normalize_implied_probabilities(market)
-        pick = max(probs, key=probs.get)
-        selected.append({**fixtures[fid],"market":"1X2","pick":pick,"pick_label":{"1":"Victoire domicile","x":"Match nul","2":"Victoire extérieur"}[pick],"probability":round(probs[pick],4),"odds_1xbet":market,"probabilities_1xbet_normalized":{k:round(v,6) for k,v in probs.items()},"model":"1xbet_de_vigged_market_baseline"})
+        market_probs = normalize_implied_probabilities(market)
+        teams = (raw_by_id.get(fid) or {}).get("teams") or {}
+        home_id, away_id = (teams.get("home") or {}).get("id"), (teams.get("away") or {}).get("id")
+        hf, ha, hn = estimate_recent_xg(int(home_id), histories.get(str(home_id), [])) if home_id is not None else (1.25, 1.25, 0)
+        af, aa, an = estimate_recent_xg(int(away_id), histories.get(str(away_id), [])) if away_id is not None else (1.25, 1.25, 0)
+        home_xg = max(0.05, min(5.0, ((hf + aa) / 2) * 1.08))
+        away_xg = max(0.05, min(5.0, (af + ha) / 2))
+        raw_model = poisson_1x2(home_xg, away_xg)
+        model_probs = {"1": raw_model[next(k for k in raw_model if k.value == "H")], "x": raw_model[next(k for k in raw_model if k.value == "D")], "2": raw_model[next(k for k in raw_model if k.value == "A")]}
+        combined = {key: market_weight * market_probs[key] + (1-market_weight) * model_probs[key] for key in ("1", "x", "2")}
+        norm = sum(combined.values())
+        combined = {key: value/norm for key, value in combined.items()}
+        pick = max(combined, key=combined.get)
+        selected.append({**fixtures[fid], "market":"1X2", "pick":pick,
+            "pick_label":{"1":"Victoire domicile","x":"Match nul","2":"Victoire extérieur"}[pick],
+            "probability":round(combined[pick],4), "probabilities_combined":{k:round(v,6) for k,v in combined.items()},
+            "probabilities_1xbet_normalized":{k:round(v,6) for k,v in market_probs.items()},
+            "probabilities_recent_form":{k:round(v,6) for k,v in model_probs.items()},
+            "recent_form_sample":{"home":hn,"away":an}, "estimated_goals":{"home":round(home_xg,3),"away":round(away_xg,3)},
+            "fixture_statistics":collected_stats.get(fid,[]), "odds_1xbet":market,
+            "model":"recent_5_matches_poisson_plus_1xbet", "market_weight":market_weight})
     selected.sort(key=lambda x:(-x["probability"],x["kickoff"],x["match_id"]))
     selected = selected[:max_legs]
-    return {"generated_at":datetime.now(timezone.utc).isoformat(),"local_date":datetime.now(LOCAL_TZ).date().isoformat(),"timezone":"Asia/Djibouti","source_fixtures":len(fixtures),"fixtures_with_1xbet_odds":len(odds_fixtures),"fixtures_with_complete_1x2":len(complete_ids),"bookmaker":"1xBet","model":"1xbet_de_vigged_market_baseline","market_weight":1.0,"coupon":selected,"status":"ready" if selected else "no_eligible_matches","warning":"Sélection basée sur les cotes 1xBet normalisées, pas sur un modèle ML validé. Les probabilités ne garantissent aucun résultat."}
+    return {"generated_at":datetime.now(timezone.utc).isoformat(),"local_date":datetime.now(LOCAL_TZ).date().isoformat(),
+        "timezone":"Asia/Djibouti","source_fixtures":len(fixtures),"fixtures_with_1xbet_odds":len(odds_fixtures),
+        "fixtures_with_complete_1x2":len(complete_ids),"teams_with_recent_history":sum(bool(v) for v in histories.values()),
+        "fixtures_with_statistics":sum(bool(v) for v in collected_stats.values()),"bookmaker":"1xBet",
+        "model":"recent_5_matches_poisson_plus_1xbet","market_weight":market_weight,"coupon":selected,
+        "status":"ready" if selected else "no_eligible_matches",
+        "warning":"Baseline sur les cinq derniers matchs disponibles, combiné à 65 % au marché 1xBet. Modèle non encore validé par backtest; aucun résultat n'est garanti."}
 
 def render_message(report: dict[str, Any]) -> str:
     lines = ["⚽ ANALYSE FOOTBALL CODEX — MATCHS DU JOUR",f"Date Djibouti : {report['local_date']} | Source cotes : 1xBet",f"Matchs API : {report['source_fixtures']} | Avec cotes 1xBet : {report['fixtures_with_1xbet_odds']}",""]
@@ -76,17 +121,32 @@ def main() -> int:
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--date",default=datetime.now(LOCAL_TZ).date().isoformat(),help="Date locale Djibouti YYYY-MM-DD")
     parser.add_argument("--max-legs",type=int,default=8)
+    parser.add_argument("--market-weight",type=float,default=0.65)
     parser.add_argument("--output",type=Path,default=Path("artifacts/daily_coupon.json"))
     parser.add_argument("--send",action="store_true",help="Send the real result to Telegram")
     args=parser.parse_args()
-    fixtures=api_get("fixtures",{"date":args.date})
+    fixtures=api_get("fixtures",{"date":args.date,"timezone":"Asia/Djibouti"})
+    fixture_rows=fixtures.get("response") or []
     odds_first=api_get("odds",{"date":args.date,"page":"1"})
     paging=odds_first.get("paging") or {}
     try: pages=min(50,max(1,int(paging.get("total",1))))
     except (TypeError,ValueError): pages=1
     all_odds=list(odds_first.get("response") or [])
     for page in range(2,pages+1): all_odds.extend(api_get("odds",{"date":args.date,"page":str(page)}).get("response") or [])
-    report=build_live_report(fixtures,{"response":all_odds},max_legs=args.max_legs)
+    team_ids=set()
+    for row in fixture_rows:
+        teams=row.get("teams") or {}
+        for side in ("home","away"):
+            tid=(teams.get(side) or {}).get("id")
+            if tid is not None: team_ids.add(int(tid))
+    histories={}
+    for tid in sorted(team_ids)[:100]:
+        histories[str(tid)]=(api_get("fixtures",{"team":str(tid),"last":"5","timezone":"Asia/Djibouti"}).get("response") or [])
+    collected_stats={}
+    for row in fixture_rows[:100]:
+        fid=(row.get("fixture") or {}).get("id")
+        if fid is not None: collected_stats[str(fid)]=(api_get("fixtures/statistics",{"fixture":str(fid)}).get("response") or [])
+    report=build_live_report(fixtures,{"response":all_odds},histories=histories,collected_stats=collected_stats,max_legs=args.max_legs,market_weight=args.market_weight)
     args.output.parent.mkdir(parents=True,exist_ok=True)
     args.output.write_text(json.dumps(report,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
     message=render_message(report); print(message)
