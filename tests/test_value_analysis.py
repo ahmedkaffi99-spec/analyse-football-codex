@@ -47,7 +47,7 @@ class ValueAnalysisTests(unittest.TestCase):
         self.assertIsNotNone(by_family["btts"]["expected_value"])
         self.assertIsNotNone(by_family["total_goals"]["edge"])
         self.assertIsNone(by_family["corners"]["edge"])
-        self.assertEqual(by_family["corners"]["value_status"], "odds_only_no_model")
+        self.assertEqual(by_family["corners"]["value_status"], "insufficient_market_specific_data")
 
     def test_edge_and_ev_calculation(self):
         rows = score_market_predictions(
