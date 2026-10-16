@@ -1,7 +1,7 @@
-"""API-Football odds collector, restricted to 1xBet only.
+"""API-Football odds collector, restricted to 1xBet, with local-only output.
 
-Fetches all pages of odds returned by the provider for a date and stores only
-1xBet quotes in the dedicated football_odds table. No prediction endpoint is used.
+Fetches pages of provider odds and returns a timestamped snapshot. No database
+write or Telegram publication is performed by this module.
 """
 from __future__ import annotations
 
