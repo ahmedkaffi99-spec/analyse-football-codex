@@ -6,7 +6,10 @@
 - Brier score, log loss, unit-stake ROI.
 - Temporal leakage protections and synthetic unit tests.
 
-## Phase 2 — Data audit
+## Phase 2 — Data audit and data foundation
+- Compare provider documentation and run a target league/season coverage pilot before selecting a paid API.
+- Draft a normalized provider-neutral schema; do not apply it until reviewed against actual Supabase migrations and policies.
+- Build point-in-time rolling features with explicit data availability and missingness.
 - Inspect real migrations/models before table-specific SQL.
 - Verify keys, timezone semantics, stable match IDs, score finality, odds timestamps, markets, selections, and duplicates.
 - Keep database access disabled until separately authorized.
