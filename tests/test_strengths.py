@@ -52,6 +52,13 @@ class TeamStrengthTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             HistoricalMatch("x", datetime(2026, 1, 1), "A", "B", 1, 0)
 
+    def test_verified_finish_must_be_aware_and_not_precede_kickoff(self):
+        kickoff = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        with self.assertRaises(ValueError):
+            HistoricalMatch("naive-finish", kickoff, "A", "B", 1, 0, finished_at=datetime(2026, 1, 1, 2))
+        with self.assertRaises(ValueError):
+            HistoricalMatch("early-finish", kickoff, "A", "B", 1, 0, finished_at=kickoff - timedelta(minutes=1))
+
 
 if __name__ == "__main__":
     unittest.main()
