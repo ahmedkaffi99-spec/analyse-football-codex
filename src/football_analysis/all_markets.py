@@ -45,6 +45,9 @@ def extract_market_predictions(odds_row: dict[str, Any]) -> list[dict[str, Any]]
                 if odd <= 1: continue
                 point = item.get("handicap")
                 line = _line(label, point) if category in {"total_goals","corners","shots","shots_on_target","yellow_cards","handicap"} else "main"
+                if category == "handicap" and line != "main":
+                    try: line = str(abs(float(line)))
+                    except ValueError: pass
                 # Preserve selection labels and group different totals/handicaps separately.
                 groups.setdefault(line, []).append((label, odd))
             for line, pairs in groups.items():
