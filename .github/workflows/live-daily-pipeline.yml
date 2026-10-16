@@ -1,6 +1,11 @@
 name: Live daily football pipeline
 
 on:
+  push:
+    branches: ["codex/daily-single-pipeline"]
+    paths:
+      - ".github/workflows/live-daily-pipeline.yml"
+      - "src/football_analysis/live_daily.py"
   workflow_dispatch:
     inputs:
       match_date:
