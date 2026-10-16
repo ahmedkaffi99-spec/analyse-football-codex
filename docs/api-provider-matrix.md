@@ -1,6 +1,6 @@
 # Data provider decision — API-Football only
 
-Status: **selected provider** for this project. This decision is based on public documentation and the user's instruction to use API-Football only. No credentials were used and no provider endpoint was called. Exact coverage still needs to be verified for each target competition and season before any live collection.
+Status: **selected and integrated in code** for this project. The Python client, tests, and manual snapshot workflow are committed. No real provider endpoint has been called from this coding session; exact coverage still needs to be verified for each target competition and season.
 
 ## Decision
 
@@ -8,11 +8,11 @@ Status: **selected provider** for this project. This decision is based on public
 - Do not integrate OddsPapi, Sportmonks, or a second provider.
 - Build our own prediction models; API-Football is a data source, not the source of our predictions.
 - Collect fixtures/results, match statistics, and bookmaker odds only where the account plan and competition coverage expose them.
-- Keep provider ingestion disabled until separately authorized. This document does not enable network calls.
+- The API client is available, but collection is **manual-only** through GitHub Actions. The workflow requires the user-configured API_FOOTBALL_KEY secret and writes only a downloadable JSON artifact.
 
 ## Important odds-history limitation
 
-API-Football documents that the `/odds` endpoint retains only approximately the last **seven days** of pre-match odds. Historical bookmaker odds from earlier dates cannot be assumed available for a multi-season backtest. To build our own odds archive, snapshots must be collected and timestamped prospectively, after live collection is explicitly enabled.
+API-Football documents that the `/odds` endpoint retains only approximately the last **seven days** of pre-match odds. Historical bookmaker odds from earlier dates cannot be assumed available for a multi-season backtest. To build our own odds archive, snapshots must be collected and timestamped prospectively, when the user manually runs the snapshot workflow.
 
 The provider advertises a Pro quota of **7,500 requests/day** on its pricing page; the project must still confirm the user's active plan and current quota in the account. Pagination and per-fixture calls can consume quota quickly, so cache reference data and request only missing or stale data.
 
@@ -39,4 +39,4 @@ Do not treat provider marketing coverage as proof that every fixture has every s
 
 ## Implementation boundary
 
-No live API calls, credentials, Supabase operations, Telegram publication, or production wiring are enabled by this decision. The research engine remains offline and uses supplied, timestamped data.
+No live API call was executed while implementing this change. The manual snapshot workflow can call API-Football after the user configures API_FOOTBALL_KEY and starts the workflow. It writes a JSON artifact only; Supabase operations, Telegram publication, and production wiring remain disabled.
