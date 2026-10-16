@@ -73,10 +73,84 @@ def _completed_matches(rows: list[dict[str, Any]], limit: int) -> list[dict[str,
     return completed[:limit]
 
 
-def build_live_report(fixtures_response: dict[str, Any], odds_response: dict[str, Any], *, histories: dict[str, list[dict[str, Any]]] | None = None, head_to_head: dict[str, list[dict[str, Any]]] | None = None, collected_stats: dict[str, Any] | None = None, max_legs: int = 8, market_weight: float = 0.65) -> dict[str, Any]:
+STAT_ALIASES = {
+    "total shots": "shots", "shots": "shots",
+    "shots on goal": "shots_on_target", "shots on target": "shots_on_target",
+    "corner kicks": "corners", "corners": "corners",
+    "yellow cards": "yellow_cards", "red cards": "red_cards",
+    "fouls": "fouls", "ball possession": "possession_pct",
+    "expected goals": "xg", "offsides": "offsides",
+}
+
+
+def _parse_fixture_statistics(response: list[dict[str, Any]]) -> dict[str, dict[str, float | None]]:
+    """Parse API-Football fixture statistics into team-name keyed numeric metrics."""
+    parsed: dict[str, dict[str, float | None]] = {}
+    for team_block in response:
+        team = team_block.get("team") or {}
+        team_name = str(team.get("name") or team.get("id") or "")
+        if not team_name:
+            continue
+        metrics: dict[str, float | None] = {}
+        for item in team_block.get("statistics") or []:
+            key = STAT_ALIASES.get(str(item.get("type") or "").strip().casefold())
+            value = item.get("value")
+            if not key or value is None or value == "":
+                continue
+            try:
+                numeric = float(str(value).replace("%", "").replace(",", "."))
+            except (TypeError, ValueError):
+                continue
+            metrics[key] = numeric
+        parsed[team_name] = metrics
+    return parsed
+
+
+def summarize_last_ten(team_id: int, history_rows: list[dict[str, Any]],
+                       stats_by_fixture: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """Mean goals and available match stats over the team's latest ten completed games."""
+    rows = _completed_matches(history_rows, 10)
+    metrics: dict[str, list[float]] = {
+        key: [] for key in ("goals_for", "goals_against", "shots", "shots_on_target",
+                            "corners", "yellow_cards", "red_cards", "fouls",
+                            "possession_pct", "xg", "offsides")
+    }
+    for row in rows:
+        fixture = row.get("fixture") or {}
+        fid = str(fixture.get("id") or "")
+        teams, goals = row.get("teams") or {}, row.get("goals") or {}
+        home, away = teams.get("home") or {}, teams.get("away") or {}
+        hg, ag = goals.get("home"), goals.get("away")
+        if hg is not None and ag is not None:
+            if home.get("id") == team_id:
+                metrics["goals_for"].append(float(hg)); metrics["goals_against"].append(float(ag))
+                own_name = str(home.get("name") or home.get("id") or "")
+            elif away.get("id") == team_id:
+                metrics["goals_for"].append(float(ag)); metrics["goals_against"].append(float(hg))
+                own_name = str(away.get("name") or away.get("id") or "")
+            else:
+                continue
+        else:
+            continue
+        match_stats = stats_by_fixture.get(fid) or {}
+        own = match_stats.get(own_name) or {}
+        for metric in metrics:
+            if metric in {"goals_for", "goals_against"}:
+                continue
+            value = own.get(metric)
+            if value is not None:
+                metrics[metric].append(float(value))
+    means = {f"{key}_mean": round(sum(values) / len(values), 3) if values else None
+             for key, values in metrics.items()}
+    counts = {f"{key}_n": len(values) for key, values in metrics.items()}
+    return {"matches_used": len(rows), **means, **counts}
+
+
+def build_live_report(fixtures_response: dict[str, Any], odds_response: dict[str, Any], *, histories: dict[str, list[dict[str, Any]]] | None = None, head_to_head: dict[str, list[dict[str, Any]]] | None = None, collected_stats: dict[str, Any] | None = None, history_stats: dict[str, dict[str, Any]] | None = None, max_legs: int = 8, market_weight: float = 0.65) -> dict[str, Any]:
     if not 1 <= max_legs <= 20: raise ValueError("max_legs must be between 1 and 20")
     if not 0.0 <= market_weight <= 1.0: raise ValueError("market_weight must be between 0 and 1")
     histories, head_to_head, collected_stats = histories or {}, head_to_head or {}, collected_stats or {}
+    history_stats = history_stats or {}
     fixture_rows = fixtures_response.get("response") or []
     fixtures = _fixture_map(fixture_rows)
     raw_by_id = {str((row.get("fixture") or {}).get("id")): row for row in fixture_rows}
@@ -125,6 +199,8 @@ def build_live_report(fixtures_response: dict[str, Any], odds_response: dict[str
             "recent_form_sample":{"home":hn,"away":an}, "estimated_goals":{"home":round(home_xg,3),"away":round(away_xg,3)},
             "last_10_home_team_matches":home_history, "last_10_away_team_matches":away_history,
             "last_5_head_to_head":h2h_history,
+            "history_averages":{"home":summarize_last_ten(int(home_id), home_history, history_stats) if home_id is not None else {},
+                                "away":summarize_last_ten(int(away_id), away_history, history_stats) if away_id is not None else {}},
             "history_coverage":{"home":len(home_history),"away":len(away_history),"head_to_head":len(h2h_history)},
             "fixture_statistics":collected_stats.get(fid,[]), "odds_1xbet":market,
             "model":"recent_10_matches_poisson_plus_1xbet", "market_weight":market_weight})
@@ -167,6 +243,8 @@ def main() -> int:
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--date",default=datetime.now(LOCAL_TZ).date().isoformat(),help="Date locale Djibouti YYYY-MM-DD")
     parser.add_argument("--max-legs",type=int,default=8)
+    parser.add_argument("--max-history-stat-fixtures",type=int,default=600,
+                        help="Maximum unique historical fixture-statistics API calls (quota guard)")
     parser.add_argument("--market-weight",type=float,default=0.65)
     parser.add_argument("--output",type=Path,default=Path("artifacts/daily_coupon.json"))
     parser.add_argument("--send",action="store_true",help="Send the real result to Telegram")
@@ -200,11 +278,37 @@ def main() -> int:
         away_id=(teams.get("away") or {}).get("id")
         if fid is None or home_id is None or away_id is None: continue
         head_to_head[str(fid)]=(api_get("fixtures",{"h2h":f"{home_id}-{away_id}","last":"5","timezone":"Africa/Djibouti"}).get("response") or [])
+    # Pull full match statistics for unique historical fixtures, deduplicated across both teams.
+    historical_fixture_rows = {}
+    for team_rows in histories.values():
+        for hist_row in _completed_matches(team_rows, 10):
+            hist_fid = (hist_row.get("fixture") or {}).get("id")
+            if hist_fid is not None:
+                historical_fixture_rows[str(hist_fid)] = hist_row
+    history_stats = {}
+    ranked_history = sorted(historical_fixture_rows.items(),
+                            key=lambda pair: str((pair[1].get("fixture") or {}).get("date") or ""),
+                            reverse=True)
+    history_stats_limit = max(0, args.max_history_stat_fixtures)
+    for hist_fid, _ in ranked_history[:history_stats_limit]:
+        history_stats[hist_fid] = _parse_fixture_statistics(
+            api_get("fixtures/statistics", {"fixture": hist_fid}).get("response") or [])
     collected_stats={}
     for row in fixture_rows[:100]:
         fid=(row.get("fixture") or {}).get("id")
-        if fid is not None: collected_stats[str(fid)]=(api_get("fixtures/statistics",{"fixture":str(fid)}).get("response") or [])
-    report=build_live_report(fixtures,{"response":all_odds},histories=histories,collected_stats=collected_stats,max_legs=args.max_legs,market_weight=args.market_weight)
+        if fid is not None:
+            collected_stats[str(fid)]=_parse_fixture_statistics(
+                api_get("fixtures/statistics",{"fixture":str(fid)}).get("response") or [])
+    report=build_live_report(fixtures,{"response":all_odds},histories=histories,
+        collected_stats=collected_stats,history_stats=history_stats,
+        max_legs=args.max_legs,market_weight=args.market_weight)
+    report["historical_statistics_collection"] = {
+        "unique_completed_fixtures_available": len(historical_fixture_rows),
+        "fixtures_with_statistics_requested": len(history_stats),
+        "fixtures_with_statistics_data": sum(bool(v) for v in history_stats.values()),
+        "max_history_stat_fixtures": history_stats_limit,
+        "statistics_fields": sorted(STAT_ALIASES.values()),
+    }
     args.output.parent.mkdir(parents=True,exist_ok=True)
     args.output.write_text(json.dumps(report,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
     message=render_message(report); print(message)
