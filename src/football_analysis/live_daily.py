@@ -119,7 +119,15 @@ def run() -> dict[str, Any]:
     if existing and existing[0].get("status") == "succeeded":
         print(f"Already completed: {run_key}")
         return {"status": "skipped", "reason": "already_succeeded"}
-    run_rows = supabase_request("pipeline_runs", method="POST", payload={"run_key": run_key, "status": "running", "metadata": {"date": date, "market_weight": 0.0}}, prefer="return=representation")
+    # Upsert makes failed/incomplete runs safely retryable for the same date.
+    # A plain INSERT returns HTTP 409 when run_key already exists.
+    run_rows = supabase_request(
+        "pipeline_runs",
+        method="POST",
+        params="on_conflict=run_key",
+        payload={"run_key": run_key, "status": "running", "metadata": {"date": date, "market_weight": 0.0}},
+        prefer="resolution=merge-duplicates,return=representation",
+    )
     run_id = run_rows[0]["id"]
     try:
         response = api_get("fixtures", {"date": date, "timezone": "UTC"})
@@ -142,7 +150,6 @@ def run() -> dict[str, Any]:
             away = (teams.get("away") or {}).get("name")
             if not fid or not kickoff or not home or not away or kickoff <= now.isoformat():
                 continue
-            # API-Football prediction endpoint provides model probabilities where available.
             pred_resp = api_get("predictions", {"fixture": str(fid)})
             pred_rows = pred_resp.get("response", [])
             prediction = (pred_rows[0].get("predictions") or {}) if pred_rows else {}
