@@ -7,6 +7,10 @@ on:
         description: "UTC date to collect odds for (YYYY-MM-DD; empty means today)"
         required: false
         type: string
+  push:
+    branches: ["codex/daily-single-pipeline"]
+    paths:
+      - ".github/workflows/collect-football-odds.yml"
   schedule:
     - cron: "15 */4 * * *"
 
