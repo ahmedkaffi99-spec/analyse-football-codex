@@ -76,7 +76,7 @@ class ApiFootballClientTests(unittest.TestCase):
         self.assertEqual(sleeps, [2.0])
 
     def test_stops_after_bounded_rate_limit_retries(self):
-        def opener(_request, _timeout):
+        def opener(_request, timeout=None):
             headers = Message()
             raise urllib.error.HTTPError("https://example.test", 429, "rate limited", headers, io.BytesIO(b""))
 
