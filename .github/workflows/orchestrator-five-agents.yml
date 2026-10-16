@@ -75,7 +75,7 @@ jobs:
           python-version: "3.11"
       - run: python -m pip install .
       - name: Validate model utility imports
-        run: python -c "from football_analysis.markets import implied_probability, normalize_implied_probabilities, poisson_market_probabilities; assert implied_probability(2.0) == 0.5; assert abs(sum(poisson_market_probabilities(1.4, 1.1)['1X2'].values()) - 1) < 0.03"
+        run: python -c "from football_analysis.markets import implied_probability, normalize_implied_probabilities, poisson_market_probabilities; p=poisson_market_probabilities(1.4, 1.1); assert implied_probability(2.0) == 0.5; assert abs(sum(p['1x2'].values()) - 1) < 1e-9; assert abs(sum(normalize_implied_probabilities({'home': 2.0, 'draw': 3.5, 'away': 4.0}).values()) - 1) < 1e-9"
 
   agent-5-workflow-safety:
     name: "Agent 5 - Workflow and secret safety"
