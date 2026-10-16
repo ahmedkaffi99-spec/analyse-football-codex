@@ -200,7 +200,7 @@ def persist_collection(*, report: dict[str, Any], fixture_rows: list[dict[str, A
             "updated_count": 0, "missing_count": max(0, len(all_rows) - len(match_payload)),
             "metadata": {"local_date": report.get("local_date"), "bookmaker": "1xBet",
                          "market_weight": report.get("market_weight", 0.65), "saved": counts},
-        }],)
+        }], conflict="run_key")
         return counts
     except Exception as exc:
         # Mark the ingestion run failed without leaking secrets.
