@@ -198,3 +198,20 @@ create table if not exists research_settled_predictions (
   settlement_rule_version text not null,
   notes text
 );
+
+create table if not exists research_ingestion_runs (
+  id bigint generated always as identity primary key,
+  provider text not null,
+  dataset_key text not null,
+  started_at timestamptz not null,
+  completed_at timestamptz,
+  status text not null check (status in ('running','succeeded','partial','failed')),
+  records_received integer not null default 0 check (records_received >= 0),
+  records_inserted integer not null default 0 check (records_inserted >= 0),
+  records_rejected integer not null default 0 check (records_rejected >= 0),
+  error_summary text,
+  source_manifest jsonb not null default '{}'::jsonb,
+  check (completed_at is null or completed_at >= started_at)
+);
+create index if not exists research_ingestion_runs_provider_time_idx
+  on research_ingestion_runs(provider, started_at desc);
