@@ -53,3 +53,13 @@ The historical schema checklist is in [docs/historical-schema-audit.md](docs/his
 - Point-in-time rolling feature engine: `football_analysis.feature_engine`. It uses only supplied history, filters by final-whistle time and stat availability time, keeps missing stats as `None`, and emits quality flags. It has no network or database access.
 
 The first feature version covers rolling goals and available xG, shots, corners and card stats with overall and venue-specific windows. Elo, standings, injuries and provider ingestion remain later tasks and must be added with explicit point-in-time provenance.
+
+
+## Ten-model data foundation (offline proposal)
+
+- Provider comparison: [docs/api-provider-matrix.md](docs/api-provider-matrix.md). This is a documentation-based shortlist, not a live coverage test or purchase decision.
+- Proposed normalized schema: [docs/database-schema.md](docs/database-schema.md) and [migrations/0001_research_schema.sql](migrations/0001_research_schema.sql). The SQL is a draft and has **not** been applied to Supabase.
+- Model-specific data requirements: [docs/model-data-contract.md](docs/model-data-contract.md).
+- Point-in-time rolling feature engine: `football_analysis.feature_engine`. It uses supplied history only, filters by final-whistle time and stat availability time, preserves missing statistics as `None`, and emits quality flags. It has no network or database access.
+
+The first feature version covers rolling goals and available xG, shots, corners and card stats with overall and venue-specific windows. Elo, standings, injuries and provider ingestion remain later tasks and require explicit point-in-time provenance.
