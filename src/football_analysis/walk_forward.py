@@ -1,6 +1,6 @@
 """Chronological walk-forward evaluation of the historical team-strength baseline.
 
-Only matches kicked off strictly before a target match are used to fit its model.
+Only matches known to be finished before prediction time are used to fit the model.
 This module is offline-only and consumes explicitly supplied finished matches.
 """
 from __future__ import annotations
@@ -51,11 +51,14 @@ def walk_forward_backtest(
     skipped: list[str] = []
     for target in rows:
         generated_at = target.kickoff - prediction_lead
-        # Conservative completion proxy: a prior match must have kicked off at
-        # least three hours before prediction generation; actual final-whistle
-        # timestamps should replace this proxy when verified data is available.
-        history_cutoff = generated_at - timedelta(hours=3)
-        history = [row for row in rows if row.kickoff < history_cutoff]
+        # Prefer verified final-whistle timestamps. If unavailable, use a
+        # conservative three-hour duration proxy; this is not a substitute for
+        # verified completion data in production research.
+        history = [
+            row for row in rows
+            if (row.finished_at <= generated_at if row.finished_at is not None
+                else row.kickoff + timedelta(hours=3) <= generated_at)
+        ]
         if len(history) < min_train_matches:
             skipped.append(target.match_id)
             continue
