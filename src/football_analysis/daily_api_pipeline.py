@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 from .collect_odds import api_get, is_target_bookmaker, only_target_bookmaker
+from .competitions import filter_priority_fixtures
 from .markets import normalize_implied_probabilities
 from .poisson import poisson_1x2
 from .telegram_publisher import send_message
@@ -154,7 +155,10 @@ def main() -> int:
     parser.add_argument("--send",action="store_true",help="Send the real result to Telegram")
     args=parser.parse_args()
     fixtures=api_get("fixtures",{"date":args.date,"timezone":"Africa/Djibouti"})
-    fixture_rows=fixtures.get("response") or []
+    all_fixture_rows=fixtures.get("response") or []
+    fixture_rows=filter_priority_fixtures(all_fixture_rows)
+    fixtures={**fixtures,"response":fixture_rows}
+    print(f"Filtre compétitions : {len(fixture_rows)}/{len(all_fixture_rows)} matchs conservés (5 grands championnats, Ligue des champions UEFA, grands clubs européens).")
     odds_first=api_get("odds",{"date":args.date,"page":"1"})
     paging=odds_first.get("paging") or {}
     try: pages=min(50,max(1,int(paging.get("total",1))))
