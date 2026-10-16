@@ -20,12 +20,18 @@ class HistoricalMatch:
     away_team: str
     home_goals: int
     away_goals: int
+    finished_at: datetime | None = None
 
     def __post_init__(self) -> None:
         if not self.match_id.strip():
             raise ValueError("match_id must not be empty")
         if self.kickoff.tzinfo is None or self.kickoff.utcoffset() is None:
             raise ValueError("kickoff must be timezone-aware")
+        if self.finished_at is not None:
+            if self.finished_at.tzinfo is None or self.finished_at.utcoffset() is None:
+                raise ValueError("finished_at must be timezone-aware")
+            if self.finished_at < self.kickoff:
+                raise ValueError("finished_at must not precede kickoff")
         if not self.home_team.strip() or not self.away_team.strip():
             raise ValueError("team names must not be empty")
         if self.home_team.strip().casefold() == self.away_team.strip().casefold():
