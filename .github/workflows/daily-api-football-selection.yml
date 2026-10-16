@@ -79,4 +79,4 @@ jobs:
           retention-days: 14
 
 # Full historical fixture-stat collection is enabled by default (0 = no local cap).
-# Trigger a fresh run after the H2H provider-validation fallback fix.
+# Trigger a fresh run after Supabase persistence integration; API-Football H2H fallback remains enabled.
