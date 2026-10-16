@@ -1,4 +1,4 @@
-name: Generate and send football preview to Telegram
+name: Generate football analysis preview (dry run only)
 
 on:
   workflow_dispatch:
@@ -12,17 +12,12 @@ on:
         required: true
         default: "12"
         type: string
-      send_telegram:
-        description: "Send the generated preview to the configured Telegram chat"
-        required: true
-        default: true
-        type: boolean
 
 permissions:
   contents: read
 
 concurrency:
-  group: telegram-daily-preview
+  group: football-analysis-preview
   cancel-in-progress: false
 
 jobs:
@@ -30,9 +25,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      SEND_TELEGRAM: ${{ inputs.send_telegram }}
       MAX_LEGS: ${{ inputs.max_legs }}
     steps:
       - name: Checkout isolated project branch
@@ -43,7 +35,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Validate inputs and secrets
+      - name: Validate inputs
         env:
           FIXTURES_JSON: ${{ inputs.fixtures_json }}
         shell: bash
@@ -60,27 +52,17 @@ jobs:
               for key in ("match_id", "home", "away", "kickoff", "home_expected_goals", "away_expected_goals"):
                   if key not in row:
                       raise SystemExit(f"fixture missing {key}")
-          if os.environ["SEND_TELEGRAM"].lower() == "true":
-              for name in ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"):
-                  if not os.environ.get(name, "").strip():
-                      raise SystemExit(f"Missing GitHub Actions secret: {name}")
           with open("fixtures-input.json", "w", encoding="utf-8") as f:
               json.dump(rows, f, ensure_ascii=False)
           PY
       - name: Install project
         run: python -m pip install .
-      - name: Generate prediction preview
-        run: python -m football_analysis.daily_pipeline fixtures-input.json --output artifacts/daily_coupon.json --max-legs "$MAX_LEGS"
-      - name: Send preview to Telegram
-        if: inputs.send_telegram
-        run: python -m football_analysis.telegram_publisher artifacts/daily_coupon.json --send
-      - name: Print dry-run preview
-        if: ${{ !inputs.send_telegram }}
-        run: python -m football_analysis.telegram_publisher artifacts/daily_coupon.json
+      - name: Generate local preview (no publication)
+        run: python -m football_analysis.daily_pipeline fixtures-input.json --output artifacts/daily_analysis.json --max-legs "$MAX_LEGS"
       - name: Upload generated report
         uses: actions/upload-artifact@v4
         with:
-          name: football-daily-preview
-          path: artifacts/daily_coupon.json
+          name: football-analysis-preview
+          path: artifacts/daily_analysis.json
           if-no-files-found: error
           retention-days: 7
