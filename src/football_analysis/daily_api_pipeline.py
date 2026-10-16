@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 from .collect_odds import api_get, is_target_bookmaker, only_target_bookmaker
 from .competitions import filter_priority_fixtures
 from .markets import normalize_implied_probabilities
+from .value_analysis import score_market_predictions
 from .poisson import poisson_1x2
 from .telegram_publisher import send_message
 
@@ -104,9 +105,21 @@ def build_live_report(fixtures_response: dict[str, Any], odds_response: dict[str
         home_history = _completed_matches(histories.get(str(home_id), []), 10) if home_id is not None else []
         away_history = _completed_matches(histories.get(str(away_id), []), 10) if away_id is not None else []
         h2h_history = _completed_matches(head_to_head.get(fid, []), 5)
+        market_family_predictions = score_market_predictions(
+            row, model_1x2=combined, home_xg=home_xg, away_xg=away_xg)
+        selected_odds = market[pick]
+        selected_market_probability = market_probs[pick]
+        selected_edge = combined[pick] - selected_market_probability
+        selected_ev = combined[pick] * selected_odds - 1
         selected.append({**fixtures[fid], "market":"1X2", "pick":pick,
             "pick_label":{"1":"Victoire domicile","x":"Match nul","2":"Victoire extérieur"}[pick],
-            "probability":round(combined[pick],4), "probabilities_combined":{k:round(v,6) for k,v in combined.items()},
+            "probability":round(combined[pick],4), "selected_odds":selected_odds,
+            "market_probability":round(selected_market_probability,6),
+            "edge":round(selected_edge,6), "edge_pct_points":round(selected_edge*100,2),
+            "expected_value":round(selected_ev,6),
+            "value_status":"positive_ev" if selected_ev > 0 else "negative_ev",
+            "markets":market_family_predictions,
+            "probabilities_combined":{k:round(v,6) for k,v in combined.items()},
             "probabilities_1xbet_normalized":{k:round(v,6) for k,v in market_probs.items()},
             "probabilities_recent_form":{k:round(v,6) for k,v in model_probs.items()},
             "recent_form_sample":{"home":hn,"away":an}, "estimated_goals":{"home":round(home_xg,3),"away":round(away_xg,3)},
@@ -123,7 +136,7 @@ def build_live_report(fixtures_response: dict[str, Any], odds_response: dict[str
         "fixtures_with_statistics":sum(bool(v) for v in collected_stats.values()),
         "head_to_head_fixtures_collected":sum(bool(v) for v in head_to_head.values()),
         "history_policy":{"per_team_last_matches":10,"head_to_head_matches":5},"bookmaker":"1xBet",
-        "model":"recent_5_matches_poisson_plus_1xbet","market_weight":market_weight,"coupon":selected,
+        "model":"recent_10_matches_poisson_plus_1xbet","market_weight":market_weight,"coupon":selected,
         "status":"ready" if selected else "no_eligible_matches",
         "warning":"Baseline sur les dix derniers matchs disponibles, combiné à 65 % au marché 1xBet. Modèle non encore validé par backtest; aucun résultat n'est garanti."}
 
@@ -135,14 +148,18 @@ def render_message(report: dict[str, Any]) -> str:
         kickoff = datetime.fromisoformat(item["kickoff"]).astimezone(LOCAL_TZ).strftime("%H:%M")
         lines.append(f"{i}. {item['home']} – {item['away']} ({kickoff}, {item['league']})")
         if item.get("odds_1xbet"):
-            lines.append(f"   1X2 : {item['pick']} — probabilité combinée {item['probability']:.0%} | cotes 1={item['odds_1xbet']['1']:.2f}, X={item['odds_1xbet']['x']:.2f}, 2={item['odds_1xbet']['2']:.2f}")
+            lines.append(f"   1X2 : {item['pick']} — prob. modèle {item['probability']:.0%} | cote {item['selected_odds']:.2f} | edge {item['edge_pct_points']:+.1f} pts | EV {item['expected_value']:+.1%}")
+            lines.append(f"   Cotes 1xBet : 1={item['odds_1xbet']['1']:.2f}, X={item['odds_1xbet']['x']:.2f}, 2={item['odds_1xbet']['2']:.2f}")
         markets = item.get("markets") or []
         if markets:
-            for market in markets:
-                line = f" ligne {market['line']}" if market.get("line") is not None else ""
-                lines.append(f"   {market['market']}{line} : {market['selection']} | cote {market['odds']:.2f} | prob. marché {market['probability']:.0%}")
-        else:
-            lines.append("   Aucun autre marché reconnu fourni pour ce match.")
+            supported = [m for m in markets if m.get("expected_value") is not None]
+            supported.sort(key=lambda m: m["expected_value"], reverse=True)
+            for market in supported[:5]:
+                line = f" {market['line']}" if market.get("line") is not None else ""
+                lines.append(f"   {market['market']}{line} — {market['selection']} | cote {market['odds']:.2f} | modèle {market['model_probability']:.0%} | edge {market['edge_pct_points']:+.1f} pts | EV {market['expected_value']:+.1%}")
+            unsupported = sorted({m["market"] for m in markets if m.get("expected_value") is None})
+            if unsupported:
+                lines.append("   Cotes sans modèle indépendant (edge non calculé) : " + ", ".join(unsupported))
     lines += ["", "Marchés selon disponibilité 1xBet : 1X2, double chance, buts, BTTS (les deux équipes marquent), handicap, corners, tirs et cartons jaunes.", "⚖️ Le 1X2 combine 65 % marché + 35 % forme récente (Poisson). Les autres probabilités sont normalisées depuis les cotes 1xBet; modèle non validé par backtest, aucun résultat garanti."]
     return "\n".join(lines)
 
