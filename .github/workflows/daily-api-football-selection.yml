@@ -72,3 +72,5 @@ jobs:
           path: artifacts/daily_analysis.json
           if-no-files-found: error
           retention-days: 14
+
+# Full historical fixture-stat collection is enabled by default (0 = no local cap).
