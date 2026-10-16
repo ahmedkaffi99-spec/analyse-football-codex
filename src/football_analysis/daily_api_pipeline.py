@@ -223,6 +223,18 @@ def render_message(report: dict[str, Any]) -> str:
     for i, item in enumerate(legs,1):
         kickoff = datetime.fromisoformat(item["kickoff"]).astimezone(LOCAL_TZ).strftime("%H:%M")
         lines.append(f"{i}. {item['home']} – {item['away']} ({kickoff}, {item['league']})")
+        averages = item.get("history_averages") or {}
+        for side, label in (("home", item["home"]), ("away", item["away"])):
+            summary = averages.get(side) or {}
+            def fmt_avg(key):
+                value = summary.get(key)
+                return f"{value:.1f}" if isinstance(value, (int, float)) else "N/D"
+            lines.append(
+                f"   Historique 10 matchs — {label}: buts {fmt_avg('goals_for_mean')}, "
+                f"corners {fmt_avg('corners_mean')}, tirs {fmt_avg('shots_mean')}, "
+                f"cadrés {fmt_avg('shots_on_target_mean')}, jaunes {fmt_avg('yellow_cards_mean')} "
+                f"(échantillon buts {summary.get('goals_for_n', 0)}, corners {summary.get('corners_n', 0)})"
+            )
         if item.get("odds_1xbet"):
             lines.append(f"   1X2 : {item['pick']} — prob. modèle {item['probability']:.0%} | cote {item['selected_odds']:.2f} | edge {item['edge_pct_points']:+.1f} pts | EV {item['expected_value']:+.1%}")
             lines.append(f"   Cotes 1xBet : 1={item['odds_1xbet']['1']:.2f}, X={item['odds_1xbet']['x']:.2f}, 2={item['odds_1xbet']['2']:.2f}")
