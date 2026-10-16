@@ -1,7 +1,7 @@
-"""API-Football odds collector.
+"""API-Football odds collector, restricted to 1xBet only.
 
-Fetches all odds markets returned by the provider for a date and stores every
-quote in the dedicated football_odds table. No prediction endpoint is used.
+Fetches all pages of odds returned by the provider for a date and stores only
+1xBet quotes in the dedicated football_odds table. No prediction endpoint is used.
 """
 from __future__ import annotations
 
@@ -17,6 +17,26 @@ from typing import Any
 from .markets import flatten_api_football_odds
 
 API_BASE = "https://v3.football.api-sports.io"
+TARGET_BOOKMAKER = "1xbet"
+
+
+def is_target_bookmaker(name: Any) -> bool:
+    """Match the exact 1xBet name, ignoring spaces and case."""
+    normalized = "".join(char for char in str(name or "").casefold() if char.isalnum())
+    return normalized == TARGET_BOOKMAKER
+
+
+def only_target_bookmaker(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep fixtures that offer 1xBet and strip every other bookmaker."""
+    filtered_rows: list[dict[str, Any]] = []
+    for row in rows:
+        bookmakers = [
+            bookmaker for bookmaker in (row.get("bookmakers") or [])
+            if is_target_bookmaker(bookmaker.get("name"))
+        ]
+        if bookmakers:
+            filtered_rows.append({**row, "bookmakers": bookmakers})
+    return filtered_rows
 
 
 def api_get(path: str, params: dict[str, str]) -> dict[str, Any]:
@@ -63,7 +83,7 @@ def supabase_request(table: str, payload: Any, params: str = "", prefer: str = "
 
 
 def collect(date: str, *, max_pages: int = 50) -> dict[str, Any]:
-    """Collect all pages of odds returned for the date and persist snapshots."""
+    """Collect 1xBet odds from all available pages and persist snapshots."""
     captured_at = datetime.now(timezone.utc).isoformat()
     all_rows: list[dict[str, Any]] = []
     page = 1
@@ -81,7 +101,8 @@ def collect(date: str, *, max_pages: int = 50) -> dict[str, Any]:
             break
         page += 1
 
-    quotes = flatten_api_football_odds(all_rows, captured_at=captured_at)
+    target_rows = only_target_bookmaker(all_rows)
+    quotes = flatten_api_football_odds(target_rows, captured_at=captured_at)
     payload = [{
         "provider": "api-football",
         "fixture_id": quote.fixture_id,
@@ -105,8 +126,6 @@ def collect(date: str, *, max_pages: int = 50) -> dict[str, Any]:
     } for quote in quotes]
 
     inserted = 0
-    # Small batches keep requests manageable. The unique key includes capture time,
-    # preserving price history rather than overwriting earlier snapshots.
     for start in range(0, len(payload), 100):
         batch = payload[start:start + 100]
         supabase_request(
@@ -119,9 +138,10 @@ def collect(date: str, *, max_pages: int = 50) -> dict[str, Any]:
     return {
         "date": date,
         "pages_fetched": min(page - 1, max_pages),
-        "fixtures_with_odds": len({row.get("fixture", {}).get("id") for row in all_rows if row.get("fixture", {}).get("id") is not None}),
+        "fixtures_with_odds": len({row.get("fixture", {}).get("id") for row in target_rows if row.get("fixture", {}).get("id") is not None}),
         "quotes_seen": len(quotes),
         "quotes_sent_to_supabase": inserted,
+        "bookmaker": "1xBet",
         "captured_at": captured_at,
         "truncated_at_max_pages": total_pages > max_pages,
     }
