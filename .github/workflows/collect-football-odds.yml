@@ -1,35 +1,33 @@
-name: Collect API-Football 1xBet odds snapshots
+name: Manual API-Football odds snapshot
 
 on:
   workflow_dispatch:
     inputs:
       odds_date:
-        description: "UTC date to collect 1xBet odds for (YYYY-MM-DD; empty means today)"
+        description: "UTC date to collect (YYYY-MM-DD; empty means today)"
         required: false
         type: string
-  push:
-    branches: ["codex/daily-single-pipeline"]
-    paths:
-      - ".github/workflows/collect-football-odds.yml"
-  schedule:
-    - cron: "15 */4 * * *"
+      max_pages:
+        description: "Maximum API pages to fetch (1-50)"
+        required: true
+        default: "10"
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: football-odds-collector
+  group: api-football-snapshot
   cancel-in-progress: false
 
 jobs:
-  collect-odds:
+  collect-snapshot:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     env:
       API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       ODDS_DATE: ${{ inputs.odds_date }}
+      MAX_PAGES: ${{ inputs.max_pages }}
     steps:
       - name: Checkout isolated project branch
         uses: actions/checkout@v4
@@ -39,20 +37,28 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Validate required secrets
+      - name: Validate API key and page limit
         shell: bash
         run: |
           set -euo pipefail
-          for name in API_FOOTBALL_KEY SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY; do
-            if [ -z "${!name:-}" ]; then
-              echo "::error::Missing required GitHub Actions secret: $name"
-              exit 1
-            fi
-          done
+          test -n "$API_FOOTBALL_KEY" || { echo "::error::Missing API_FOOTBALL_KEY secret"; exit 1; }
+          python - <<'PY'
+          import os
+          pages = int(os.environ["MAX_PAGES"])
+          if not 1 <= pages <= 50:
+              raise SystemExit("MAX_PAGES must be between 1 and 50")
+          PY
           if [ -z "${ODDS_DATE:-}" ]; then
             echo "ODDS_DATE=$(date -u +%F)" >> "$GITHUB_ENV"
           fi
-      - name: Install package
+      - name: Install project
         run: python -m pip install .
-      - name: Collect only 1xBet odds markets
-        run: python -m football_analysis.collect_odds
+      - name: Fetch API-Football odds snapshot (local artifact only)
+        run: python -m football_analysis.provider_snapshot --date "$ODDS_DATE" --max-pages "$MAX_PAGES" --output artifacts/api_football_odds.json
+      - name: Upload snapshot artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-football-odds-snapshot
+          path: artifacts/api_football_odds.json
+          if-no-files-found: error
+          retention-days: 14
