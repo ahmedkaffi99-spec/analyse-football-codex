@@ -8,13 +8,11 @@ from __future__ import annotations
 import json
 import os
 import sys
-import urllib.error
-import urllib.parse
-import urllib.request
 from datetime import datetime, timezone
 from typing import Any
 
 from .markets import flatten_api_football_odds
+from .api_football_client import api_get as _resilient_api_get
 
 API_BASE = "https://v3.football.api-sports.io"
 TARGET_BOOKMAKER = "1xbet"
@@ -40,21 +38,8 @@ def only_target_bookmaker(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def api_get(path: str, params: dict[str, str]) -> dict[str, Any]:
-    key = os.environ.get("API_FOOTBALL_KEY", "").strip()
-    if not key:
-        raise RuntimeError("Missing API_FOOTBALL_KEY")
-    url = f"{API_BASE}/{path}?{urllib.parse.urlencode(params)}"
-    request = urllib.request.Request(url, headers={"x-apisports-key": key, "Accept": "application/json"})
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            body = json.loads(response.read().decode("utf-8"))
-    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
-        raise RuntimeError(f"API-Football request failed for {path}: {exc}") from exc
-    if not isinstance(body, dict):
-        raise RuntimeError("Unexpected API-Football response")
-    if body.get("errors"):
-        raise RuntimeError(f"API-Football returned errors for {path}: {body['errors']}")
-    return body
+    """Use the shared API-Football client with bounded retries and quota capture."""
+    return _resilient_api_get(path, params)
 
 
 def supabase_request(table: str, payload: Any, params: str = "", prefer: str = "return=minimal") -> Any:
