@@ -1,43 +1,42 @@
-# Data/API provider decision — research phase
+# Data provider decision — API-Football only
 
-Status: public-documentation review only. No credentials were used and no provider endpoint was called. Exact coverage must be verified for the competitions and seasons we actually intend to model before purchase or collection.
+Status: **selected provider** for this project. This decision is based on public documentation and the user's instruction to use API-Football only. No credentials were used and no provider endpoint was called. Exact coverage still needs to be verified for each target competition and season before any live collection.
 
-## Provisional recommendation
+## Decision
 
-- **Primary candidate for historical match statistics:** API-Football (API-Sports), because the project already has an adapter in its research history and the provider documents fixtures, fixture statistics, injuries, lineups, standings, and pre-match odds. It advertises a Pro quota of 7,500 requests/day, but odds history is limited: the provider says the `/odds` endpoint retains only about seven days. Do not assume it can backfill years of historical bookmaker prices.
-- **Specialist fallback / candidate for richer statistics:** Sportmonks. Its docs describe team match statistics including shots, shots on target, corners, cards and possession, with xG available for selected competitions or add-ons. Historical depth and statistic availability vary by league/season and plan.
-- **Odds specialist:** OddsPapi, since its docs expose historical odds as a dedicated endpoint and bookmaker/market catalogs. Confirm 1xBet is included, the exact markets/settlement rules are covered, and how far back the historical odds go under the chosen plan.
-- **Do not add all providers immediately.** First run a coverage pilot across target leagues and seasons, compare data completeness and IDs, then choose one statistics provider and one odds provider only if needed.
+- **Use API-Football (API-Sports) as the sole external football-data provider.**
+- Do not integrate OddsPapi, Sportmonks, or a second provider.
+- Build our own prediction models; API-Football is a data source, not the source of our predictions.
+- Collect fixtures/results, match statistics, and bookmaker odds only where the account plan and competition coverage expose them.
+- Keep provider ingestion disabled until separately authorized. This document does not enable network calls.
 
-## Capability matrix (docs-level, not yet validated against our target leagues)
+## Important odds-history limitation
 
-| Data requirement | API-Football | Sportmonks | OddsPapi |
-|---|---|---|---|
-| Fixtures, results, seasons | Documented | Documented | Fixtures documented; score endpoint exists |
-| Team stats: shots, corners, cards, possession | Fixture statistics endpoint; check coverage per league/season | Rich fixture statistics documented; exact depth varies | Not the main purpose; do not rely on it |
-| xG | Verify per league/season and endpoint response | Available for selected competitions / add-on | Not the main purpose |
-| Injuries / suspensions | Endpoint documented; coverage varies | Check product/plan and competition coverage | Not the main purpose |
-| Pre-match odds | Documented | Odds API documented | Core capability |
-| Historical odds for multi-season backtest | Major caveat: docs say `/odds` retains only the last seven days; capture prospectively or use another source | Verify archive and plan in writing | Dedicated historical-odds endpoint documented; depth/markets need confirmation |
-| Bookmaker-specific 1xBet | Verify bookmaker/market coverage before relying on it | Verify exact bookmaker coverage | Verify 1xBet bookmaker ID and market availability |
-| Quota / cost fit | Current pricing page advertises Pro at 7,500 requests/day; confirm account entitlement and current limits | Plan/league-dependent; request a quote or inspect plan | Plan/quota-dependent; confirm contract |
+API-Football documents that the `/odds` endpoint retains only approximately the last **seven days** of pre-match odds. Historical bookmaker odds from earlier dates cannot be assumed available for a multi-season backtest. To build our own odds archive, snapshots must be collected and timestamped prospectively, after live collection is explicitly enabled.
 
-## Primary documentation
+The provider advertises a Pro quota of **7,500 requests/day** on its pricing page; the project must still confirm the user's active plan and current quota in the account. Pagination and per-fixture calls can consume quota quickly, so cache reference data and request only missing or stale data.
 
-- [API-Football documentation and coverage](https://www.api-football.com/documentation-v3), [coverage matrix](https://www.api-football.com/coverage), [pricing](https://www.api-football.com/pricing/), [historical odds limitation explained in provider guide](https://www.api-football.com/news/post/how-to-get-started-with-api-football-the-complete-beginners-guide).
-- [Sportmonks football API documentation](https://docs.sportmonks.com/v3), [statistics API overview](https://www.sportmonks.com/football-api/football-stats-api/), [historical/statistical coverage FAQ](https://www.sportmonks.com/faq/).
-- [OddsPapi API v4 docs](https://oddspapi.io/en/docs), [historical odds endpoint catalogue](https://oddspapi.io/en/docs/methods).
+## Required coverage pilot (not yet run)
 
-## Pilot acceptance criteria before committing
+For every target league and season, record:
+1. Fixture coverage, stable fixture IDs, final scores, and finality/status fields.
+2. Availability of shots, shots on target, corners, yellow/red cards, possession, and xG where offered.
+3. Injury/suspension availability and the timestamp/meaning of each field.
+4. Exact bookmaker availability for **1xBet**, plus supported market and selection IDs.
+5. Odds timestamps, update frequency, pagination, and the seven-day historical limitation.
+6. Requests required for an initial backfill and for daily refresh under the 7,500/day quota.
+7. Missingness per field, competition, season, and fixture.
 
-For each target league-season, measure:
-1. fixture coverage and stable match IDs;
-2. final scores and reliable finality/status fields;
-3. completeness of shots, shots on target, corners, yellow/red cards and possession;
-4. xG availability and its provenance;
-5. injury/suspension coverage and timestamps;
-6. odds coverage for the exact bookmaker, market, selection and observation time;
-7. historical depth and gaps by season;
-8. request cost to backfill and daily refresh cost.
+Do not treat provider marketing coverage as proof that every fixture has every statistic. Persist field-level missingness, provider identifiers, retrieval time, and original source timestamps. Models must accept missing features rather than fabricate values.
 
-Do not treat provider marketing coverage as proof that every fixture has every statistic. Store field-level missingness and source provenance. No live API integration is enabled by this document.
+## Official documentation
+
+- [API-Football v3 documentation](https://www.api-football.com/documentation-v3)
+- [Competition/season coverage](https://www.api-football.com/coverage)
+- [Pricing and request quotas](https://www.api-football.com/pricing/)
+- [Provider guide: odds endpoint and seven-day retention](https://www.api-football.com/news/post/how-to-get-started-with-api-football-the-complete-beginners-guide)
+- [Provider guide: quota optimization](https://www.api-football.com/news/post/how-to-optimize-api-sports-calls-and-quota-usage)
+
+## Implementation boundary
+
+No live API calls, credentials, Supabase operations, Telegram publication, or production wiring are enabled by this decision. The research engine remains offline and uses supplied, timestamped data.
