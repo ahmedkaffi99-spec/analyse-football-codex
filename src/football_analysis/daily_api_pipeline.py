@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 from .collect_odds import api_get, is_target_bookmaker, only_target_bookmaker
+from .api_football_client import ApiFootballResponseError
 from .competitions import filter_priority_fixtures
 from .markets import normalize_implied_probabilities
 from .value_analysis import score_market_predictions
@@ -289,7 +290,16 @@ def main() -> int:
         home_id=(teams.get("home") or {}).get("id")
         away_id=(teams.get("away") or {}).get("id")
         if fid is None or home_id is None or away_id is None: continue
-        head_to_head[str(fid)]=(api_get("fixtures",{"h2h":f"{home_id}-{away_id}","last":"5","timezone":"Africa/Djibouti"}).get("response") or [])
+        try:
+            head_to_head[str(fid)] = (
+                api_get("fixtures", {"h2h": f"{home_id}-{away_id}", "last": "5",
+                                     "timezone": "Africa/Djibouti"}).get("response") or []
+            )
+        except ApiFootballResponseError as exc:
+            # H2H is supplementary: a provider validation error must not abort
+            # today's 1xBet availability check or the last-ten statistics run.
+            print(f"H2H indisponible pour fixture {fid}; collecte principale continue ({exc}).")
+            head_to_head[str(fid)] = []
     # Pull full match statistics for unique historical fixtures, deduplicated across both teams.
     historical_fixture_rows = {}
     for team_rows in histories.values():
