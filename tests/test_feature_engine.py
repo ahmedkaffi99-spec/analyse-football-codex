@@ -18,9 +18,9 @@ def row(i, home, away, hg, ag, *, day, stats_at=None, hs=None, aws=None, finishe
 class FeatureEngineTests(unittest.TestCase):
     def test_uses_only_finished_matches_and_available_stats(self):
         history = [
-            row(1, "A", "B", 2, 0, day=1, stats_at=BASE + timedelta(days=1, hours=4),
+            row(1, "A", "B", 2, 0, day=1, stats_at=BASE + timedelta(days=7, hours=4),
                 hs={"corners": 6, "xg": 1.8}, aws={"corners": 2, "xg": .3}),
-            row(2, "C", "A", 1, 1, day=2, stats_at=BASE + timedelta(days=2, hours=4),
+            row(2, "C", "A", 1, 1, day=2, stats_at=BASE + timedelta(days=7, hours=4),
                 hs={"corners": 4, "xg": 1.1}, aws={"corners": 5, "xg": 1.2}),
             row(3, "A", "C", 9, 0, day=5, stats_at=BASE + timedelta(days=5, hours=4),
                 hs={"corners": 12, "xg": 4.0}, aws={"corners": 1, "xg": .1}),
