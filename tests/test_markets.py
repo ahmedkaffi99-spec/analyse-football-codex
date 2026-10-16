@@ -1,3 +1,4 @@
+import math
 import unittest
 
 from football_analysis.markets import (
@@ -14,6 +15,18 @@ class MarketUtilitiesTests(unittest.TestCase):
         self.assertAlmostEqual(implied_probability(2.0), 0.5)
         with self.assertRaises(ValueError):
             implied_probability(1.0)
+
+    def test_rejects_non_finite_odds_and_poisson_inputs(self):
+        for value in (math.nan, math.inf, -math.inf):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    implied_probability(value)
+                with self.assertRaises(ValueError):
+                    poisson_distribution(value)
+                with self.assertRaises(ValueError):
+                    poisson_market_probabilities(value, 1.2)
+        with self.assertRaises(ValueError):
+            normalize_implied_probabilities({"home": 2.0, "draw": math.nan})
 
     def test_remove_overround(self):
         probs = normalize_implied_probabilities({"home": 2.0, "draw": 3.5, "away": 4.0})
@@ -33,7 +46,7 @@ class MarketUtilitiesTests(unittest.TestCase):
         self.assertIn("2.5", markets["totals"])
         self.assertIn("1-0", markets["correct_scores"])
 
-    def test_flatten_odds_keeps_unknown_markets(self):
+    def test_flatten_odds_keeps_unknown_markets_and_skips_invalid_odds(self):
         rows = [{
             "fixture": {"id": 123},
             "bookmakers": [{
@@ -46,6 +59,8 @@ class MarketUtilitiesTests(unittest.TestCase):
                         {"value": "Yes", "odd": "1.91"},
                         {"value": "No", "odd": "1.99"},
                         {"value": "invalid", "odd": "N/A"},
+                        {"value": "nan", "odd": "NaN"},
+                        {"value": "infinite", "odd": "Infinity"},
                     ],
                 }],
             }],
