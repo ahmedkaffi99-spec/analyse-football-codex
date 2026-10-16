@@ -1,4 +1,5 @@
-name: Daily API-Football match selection to Telegram
+name: Manual API-Football daily analysis (dry run only)
+
 on:
   workflow_dispatch:
     inputs:
@@ -6,27 +7,20 @@ on:
         description: "Date locale Djibouti YYYY-MM-DD (vide = aujourd'hui)"
         required: false
         type: string
-      send_telegram:
-        description: "Envoyer sur Telegram (sinon dry-run)"
-        required: true
-        default: false
-        type: boolean
-  schedule:
-    - cron: "0 5 * * *"
+
 permissions:
   contents: read
+
 concurrency:
-  group: daily-api-football-selection
+  group: daily-api-football-analysis
   cancel-in-progress: false
+
 jobs:
-  select-and-publish:
+  analyze:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
       API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
-      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      SEND_TELEGRAM: ${{ github.event_name == 'schedule' || inputs.send_telegram == true }}
       MATCH_DATE: ${{ inputs.match_date }}
     steps:
       - name: Checkout isolated branch
@@ -36,30 +30,23 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Validate configuration
+      - name: Validate API configuration
         shell: bash
         run: |
           set -euo pipefail
           test -n "$API_FOOTBALL_KEY" || { echo "::error::Missing API_FOOTBALL_KEY"; exit 1; }
-          if [ "$SEND_TELEGRAM" = "true" ]; then
-            test -n "$TELEGRAM_BOT_TOKEN" || { echo "::error::Missing TELEGRAM_BOT_TOKEN"; exit 1; }
-            test -n "$TELEGRAM_CHAT_ID" || { echo "::error::Missing TELEGRAM_CHAT_ID"; exit 1; }
-          fi
           if [ -z "${MATCH_DATE:-}" ]; then
             MATCH_DATE="$(TZ=Asia/Djibouti date +%F)"
             echo "MATCH_DATE=$MATCH_DATE" >> "$GITHUB_ENV"
           fi
       - name: Install project
         run: python -m pip install .
-      - name: Select today's matches using API-Football and 1xBet odds
-        run: |
-          args=(--date "$MATCH_DATE" --output artifacts/daily_coupon.json)
-          if [ "$SEND_TELEGRAM" = "true" ]; then args+=(--send); fi
-          python -m football_analysis.daily_api_pipeline "${args[@]}"
-      - name: Upload daily selection report
+      - name: Generate local analysis report (no publication)
+        run: python -m football_analysis.daily_api_pipeline --date "$MATCH_DATE" --output artifacts/daily_analysis.json
+      - name: Upload analysis report
         uses: actions/upload-artifact@v4
         with:
-          name: daily-football-selection
-          path: artifacts/daily_coupon.json
+          name: daily-football-analysis
+          path: artifacts/daily_analysis.json
           if-no-files-found: error
           retention-days: 14
