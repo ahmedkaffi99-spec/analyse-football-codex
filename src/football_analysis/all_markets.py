@@ -19,7 +19,7 @@ def _category(name: str) -> str | None:
     return None
 
 def _line(value: str, fallback: Any = None) -> str:
-    match = re.search(r"(?<![A-Za-z])([+-]?\\d+(?:[.,]\\d+)?)", value)
+    match = re.search(r"(?<![A-Za-z])([+-]?\d+(?:[.,]\d+)?)", value)
     raw = match.group(1).replace(",", ".") if match else (str(fallback) if fallback is not None else "main")
     return raw
 
