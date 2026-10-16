@@ -255,8 +255,8 @@ def main() -> int:
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--date",default=datetime.now(LOCAL_TZ).date().isoformat(),help="Date locale Djibouti YYYY-MM-DD")
     parser.add_argument("--max-legs",type=int,default=8)
-    parser.add_argument("--max-history-stat-fixtures",type=int,default=600,
-                        help="Maximum unique historical fixture-statistics API calls (quota guard)")
+    parser.add_argument("--max-history-stat-fixtures",type=int,default=0,
+                        help="Maximum unique historical fixture-statistics API calls; 0 means all available historical fixtures")
     parser.add_argument("--market-weight",type=float,default=0.65)
     parser.add_argument("--output",type=Path,default=Path("artifacts/daily_coupon.json"))
     parser.add_argument("--send",action="store_true",help="Send the real result to Telegram")
@@ -301,7 +301,8 @@ def main() -> int:
     ranked_history = sorted(historical_fixture_rows.items(),
                             key=lambda pair: str((pair[1].get("fixture") or {}).get("date") or ""),
                             reverse=True)
-    history_stats_limit = max(0, args.max_history_stat_fixtures)
+    history_stats_limit = len(ranked_history) if args.max_history_stat_fixtures == 0 else min(
+        len(ranked_history), max(0, args.max_history_stat_fixtures))
     for hist_fid, _ in ranked_history[:history_stats_limit]:
         history_stats[hist_fid] = _parse_fixture_statistics(
             api_get("fixtures/statistics", {"fixture": hist_fid}).get("response") or [])
