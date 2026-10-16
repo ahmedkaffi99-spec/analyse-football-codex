@@ -7,11 +7,11 @@
 - Temporal leakage protections and synthetic unit tests.
 
 ## Phase 2 — Data audit and data foundation
-- Compare provider documentation and run a target league/season coverage pilot before selecting a paid API.
+- Use API-Football as the sole provider and run a target league/season coverage pilot before enabling collection; verify exact 1xBet markets, statistics coverage, and quota.
 - Draft a normalized provider-neutral schema; do not apply it until reviewed against actual Supabase migrations and policies.
 - Build point-in-time rolling features with explicit data availability and missingness.
 - Inspect real migrations/models before table-specific SQL.
-- Verify keys, timezone semantics, stable match IDs, score finality, odds timestamps, markets, selections, and duplicates.
+- Verify keys, timezone semantics, stable match IDs, score finality, odds timestamps, markets, selections, and duplicates. Account for API-Football's approximately seven-day pre-match odds history limit; capture future snapshots prospectively.
 - Keep database access disabled until separately authorized.
 
 ## Phase 3 — Baselines and validation
