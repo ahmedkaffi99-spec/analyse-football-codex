@@ -129,12 +129,30 @@ create table if not exists research_feature_snapshots (
   source_manifest jsonb not null default '{}'::jsonb,
   features jsonb not null,
   quality_flags jsonb not null default '[]'::jsonb,
-  check (data_cutoff_at <= generated_at),
-  check (generated_at < (select null from research_matches where false))
+  check (data_cutoff_at <= generated_at)
 );
--- The final check above cannot reference another table in PostgreSQL; kickoff
--- ordering is enforced in application validation and audit queries, not a CHECK.
--- Replace by application-level validation before migration review.
+
+-- Cross-table temporal invariant: a feature snapshot must be generated before kickoff.
+create or replace function research_validate_feature_snapshot_time()
+returns trigger language plpgsql as $
+declare match_kickoff timestamptz;
+begin
+  select kickoff_at into match_kickoff from research_matches where id = new.match_id;
+  if match_kickoff is null then
+    raise exception 'feature snapshot references missing match %', new.match_id;
+  end if;
+  if new.generated_at >= match_kickoff then
+    raise exception 'feature snapshot must be generated before kickoff';
+  end if;
+  if new.data_cutoff_at > new.generated_at then
+    raise exception 'feature data cutoff cannot be after generation time';
+  end if;
+  return new;
+end;
+$;
+create trigger research_feature_snapshot_time_guard
+before insert or update on research_feature_snapshots
+for each row execute function research_validate_feature_snapshot_time();
 
 create table if not exists research_model_runs (
   id bigint generated always as identity primary key,
