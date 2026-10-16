@@ -36,7 +36,7 @@ jobs:
           set -euo pipefail
           test -n "$API_FOOTBALL_KEY" || { echo "::error::Missing API_FOOTBALL_KEY"; exit 1; }
           if [ -z "${MATCH_DATE:-}" ]; then
-            MATCH_DATE="$(TZ=Asia/Djibouti date +%F)"
+            MATCH_DATE="$(TZ=Africa/Djibouti date +%F)"
             echo "MATCH_DATE=$MATCH_DATE" >> "$GITHUB_ENV"
           fi
       - name: Install project
