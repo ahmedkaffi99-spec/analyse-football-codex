@@ -334,6 +334,10 @@ def main() -> int:
     }
     args.output.parent.mkdir(parents=True,exist_ok=True)
     args.output.write_text(json.dumps(report,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+    from .supabase_persistence import persist_collection
+    saved = persist_collection(report=report, fixture_rows=fixture_rows,
+        odds_rows=all_odds, histories=histories, history_stats=history_stats)
+    print(f"Supabase : {saved}")
     message=render_message(report); print(message)
     if args.send and report["coupon"]:
         result=send_message(message,token=os.environ.get("TELEGRAM_BOT_TOKEN",""),chat_id=os.environ.get("TELEGRAM_CHAT_ID",""))
