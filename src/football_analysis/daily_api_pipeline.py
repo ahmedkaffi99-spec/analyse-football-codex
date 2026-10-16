@@ -14,7 +14,7 @@ from .markets import normalize_implied_probabilities
 from .poisson import poisson_1x2
 from .telegram_publisher import send_message
 
-LOCAL_TZ = ZoneInfo("Asia/Djibouti")
+LOCAL_TZ = ZoneInfo("Africa/Djibouti")
 
 def _fixture_map(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     result = {}
@@ -100,7 +100,7 @@ def build_live_report(fixtures_response: dict[str, Any], odds_response: dict[str
     selected.sort(key=lambda x:(-x["probability"],x["kickoff"],x["match_id"]))
     selected = selected[:max_legs]
     return {"generated_at":datetime.now(timezone.utc).isoformat(),"local_date":datetime.now(LOCAL_TZ).date().isoformat(),
-        "timezone":"Asia/Djibouti","source_fixtures":len(fixtures),"fixtures_with_1xbet_odds":len(odds_fixtures),
+        "timezone":"Africa/Djibouti","source_fixtures":len(fixtures),"fixtures_with_1xbet_odds":len(odds_fixtures),
         "fixtures_with_complete_1x2":len(complete_ids),"teams_with_recent_history":sum(bool(v) for v in histories.values()),
         "fixtures_with_statistics":sum(bool(v) for v in collected_stats.values()),"bookmaker":"1xBet",
         "model":"recent_5_matches_poisson_plus_1xbet","market_weight":market_weight,"coupon":selected,
@@ -125,7 +125,7 @@ def main() -> int:
     parser.add_argument("--output",type=Path,default=Path("artifacts/daily_coupon.json"))
     parser.add_argument("--send",action="store_true",help="Send the real result to Telegram")
     args=parser.parse_args()
-    fixtures=api_get("fixtures",{"date":args.date,"timezone":"Asia/Djibouti"})
+    fixtures=api_get("fixtures",{"date":args.date,"timezone":"Africa/Djibouti"})
     fixture_rows=fixtures.get("response") or []
     odds_first=api_get("odds",{"date":args.date,"page":"1"})
     paging=odds_first.get("paging") or {}
@@ -141,7 +141,7 @@ def main() -> int:
             if tid is not None: team_ids.add(int(tid))
     histories={}
     for tid in sorted(team_ids)[:100]:
-        histories[str(tid)]=(api_get("fixtures",{"team":str(tid),"last":"5","timezone":"Asia/Djibouti"}).get("response") or [])
+        histories[str(tid)]=(api_get("fixtures",{"team":str(tid),"last":"5","timezone":"Africa/Djibouti"}).get("response") or [])
     collected_stats={}
     for row in fixture_rows[:100]:
         fid=(row.get("fixture") or {}).get("id")
