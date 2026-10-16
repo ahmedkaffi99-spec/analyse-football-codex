@@ -70,12 +70,12 @@ jobs:
           if [ "$SEND_TELEGRAM" = "true" ]; then args+=(--send); fi
           python -m football_analysis.daily_api_pipeline "${args[@]}"
       - name: Upload collected data and prediction report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: daily-football-analysis
           path: artifacts/daily_analysis.json
-          if-no-files-found: error
-          if: always()
+          if-no-files-found: warn
           retention-days: 14
 
 # Full historical fixture-stat collection is enabled by default (0 = no local cap).
