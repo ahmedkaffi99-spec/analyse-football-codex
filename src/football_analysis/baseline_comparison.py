@@ -37,10 +37,11 @@ def compare_baselines(
     and strictly before kickoff is eligible. Market probabilities are normalized
     by their implied-probability sum to remove the overround approximately.
     """
-    prediction_map = {p.match_id: p for p in predictions}
+    prediction_rows = list(predictions)
     result_rows = list(results)
+    prediction_map = {p.match_id: p for p in prediction_rows}
     result_map = {r.match_id: r for r in result_rows}
-    if len(prediction_map) != len(list(prediction_map.keys())) or len(result_map) != len(result_rows):
+    if len(prediction_map) != len(prediction_rows) or len(result_map) != len(result_rows):
         raise ValueError("duplicate prediction or result match_id")
     odds = list(odds_snapshots)
     keys = [(o.match_id, o.observed_at) for o in odds]
