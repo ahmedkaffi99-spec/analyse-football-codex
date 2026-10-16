@@ -27,3 +27,19 @@ python -m unittest discover -s tests -v
 ```
 
 See `docs/roadmap.md` for the implementation sequence and `docs/data-contract.md` for the initial data rules. The schema of `hist_matchs` and `hist_cotes` remains unverified; SQL examples must not assume their columns until migration/model files are available.
+
+
+## Local validation and baseline comparison
+
+Run the full offline test suite with:
+
+```bash
+python -m pip install -e .
+python -m unittest discover -s tests -v
+```
+
+The chronological backtest uses verified `finished_at` timestamps when supplied. When missing, it uses a documented three-hour kickoff-based proxy; results relying on that proxy are exploratory only.
+
+For baseline comparison, use `compare_baselines(predictions, results, odds_snapshots)`. It compares model probabilities against a uniform 1/3 baseline and normalized implied market probabilities, using only odds available at prediction time. Inspect `BaselineComparison.sample_size` and `market_sample_size` before interpreting scores.
+
+The historical schema checklist is in [docs/historical-schema-audit.md](docs/historical-schema-audit.md). No Supabase query is run by this codebase; the real schema must be verified before any table-specific SQL or historical-data import.
