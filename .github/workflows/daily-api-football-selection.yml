@@ -1,4 +1,4 @@
-name: Manual API-Football daily analysis (dry run only)
+name: Daily API-Football analysis and Telegram delivery
 
 on:
   workflow_dispatch:
@@ -7,6 +7,11 @@ on:
         description: "Date locale Djibouti YYYY-MM-DD (vide = aujourd'hui)"
         required: false
         type: string
+      send_telegram:
+        description: "Envoyer le rapport à Telegram"
+        required: true
+        default: true
+        type: boolean
 
 permissions:
   contents: read
@@ -18,10 +23,13 @@ concurrency:
 jobs:
   analyze:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       MATCH_DATE: ${{ inputs.match_date }}
+      SEND_TELEGRAM: ${{ inputs.send_telegram }}
     steps:
       - name: Checkout isolated branch
         uses: actions/checkout@v4
@@ -30,20 +38,29 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Validate API configuration
+      - name: Validate configuration and local date
         shell: bash
         run: |
           set -euo pipefail
-          test -n "$API_FOOTBALL_KEY" || { echo "::error::Missing API_FOOTBALL_KEY"; exit 1; }
+          test -n "$API_FOOTBALL_KEY" || { echo "::error::Missing API_FOOTBALL_KEY repository secret"; exit 1; }
+          if [ "$SEND_TELEGRAM" = "true" ]; then
+            test -n "$TELEGRAM_BOT_TOKEN" || { echo "::error::Missing TELEGRAM_BOT_TOKEN repository secret"; exit 1; }
+            test -n "$TELEGRAM_CHAT_ID" || { echo "::error::Missing TELEGRAM_CHAT_ID repository secret"; exit 1; }
+          fi
           if [ -z "${MATCH_DATE:-}" ]; then
             MATCH_DATE="$(TZ=Africa/Djibouti date +%F)"
             echo "MATCH_DATE=$MATCH_DATE" >> "$GITHUB_ENV"
           fi
       - name: Install project
         run: python -m pip install .
-      - name: Generate local analysis report (no publication)
-        run: python -m football_analysis.daily_api_pipeline --date "$MATCH_DATE" --output artifacts/daily_analysis.json
-      - name: Upload analysis report
+      - name: Collect today's fixtures, recent form, statistics and 1xBet odds; predict
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(--date "$MATCH_DATE" --market-weight 0.65 --max-legs 8 --output artifacts/daily_analysis.json)
+          if [ "$SEND_TELEGRAM" = "true" ]; then args+=(--send); fi
+          python -m football_analysis.daily_api_pipeline "${args[@]}"
+      - name: Upload collected data and prediction report
         uses: actions/upload-artifact@v4
         with:
           name: daily-football-analysis
