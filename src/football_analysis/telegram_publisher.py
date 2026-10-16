@@ -27,8 +27,16 @@ def send_message(text: str, *, token: str, chat_id: str, timeout: int = 15) -> d
     try:
         with urlopen(request, timeout=timeout) as response:
             result = json.loads(response.read().decode("utf-8"))
-    except (HTTPError, URLError, TimeoutError) as exc:
-        raise RuntimeError(f"Telegram delivery failed: {exc}") from exc
+    except HTTPError as exc:
+        # Preserve Telegram's diagnostic response (e.g. message too long or bad chat_id)
+        # without logging the bot token or request URL.
+        try:
+            detail = exc.read().decode("utf-8", errors="replace")[:500]
+        except Exception:
+            detail = ""
+        raise RuntimeError(f"Telegram delivery failed: HTTP {exc.code}; response={detail}") from exc
+    except (URLError, TimeoutError) as exc:
+        raise RuntimeError(f"Telegram delivery failed: {type(exc).__name__}") from exc
     if not result.get("ok"):
         raise RuntimeError(f"Telegram API rejected message: {result!r}")
     return result
