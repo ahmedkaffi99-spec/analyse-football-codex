@@ -1,0 +1,76 @@
+name: Diagnostic API-Football and Telegram
+
+on:
+  push:
+    branches:
+      - codex/daily-single-pipeline
+    paths:
+      - .github/workflows/diagnostic-integrations.yml
+  workflow_dispatch:
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Test API-Football independently
+        env:
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request, urllib.error
+          from datetime import datetime, timezone
+          key = os.environ.get("API_FOOTBALL_KEY", "").strip()
+          if not key:
+              raise SystemExit("FAIL: API_FOOTBALL_KEY missing")
+          url = "https://v3.football.api-sports.io/fixtures?date=" + datetime.now(timezone.utc).date().isoformat() + "&timezone=UTC"
+          req = urllib.request.Request(url, headers={"x-apisports-key": key, "Accept": "application/json"})
+          try:
+              with urllib.request.urlopen(req, timeout=20) as r:
+                  body = json.loads(r.read().decode())
+          except urllib.error.HTTPError as e:
+              raise SystemExit(f"FAIL: API-Football HTTP {e.code}")
+          errors = body.get("errors")
+          if errors:
+              raise SystemExit("FAIL: API-Football returned API errors: " + json.dumps(errors)[:500])
+          print("PASS: API-Football authentication and fixtures endpoint")
+          print("Fixtures returned for UTC date:", len(body.get("response", [])))
+          print("Requests remaining:", (body.get("response") or [{}])[0].get("requests_remaining", "not provided"))
+          PY
+      - name: Test Telegram independently
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python - <<'PY'
+          import json, os, urllib.request, urllib.error
+          token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+          chat = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
+          if not token or not chat:
+              raise SystemExit("FAIL: Telegram token or chat ID secret missing")
+          def call(method, payload=None):
+              url = f"https://api.telegram.org/bot{token}/{method}"
+              data = None if payload is None else json.dumps(payload).encode()
+              req = urllib.request.Request(url, data=data, headers={"Content-Type":"application/json"} if data else {})
+              try:
+                  with urllib.request.urlopen(req, timeout=15) as r:
+                      return json.loads(r.read().decode())
+              except urllib.error.HTTPError as e:
+                  try: body = json.loads(e.read().decode())
+                  except Exception: body = {"description": "HTTP error"}
+                  raise RuntimeError(f"{method} failed (HTTP {e.code}): {body.get('description', 'unknown error')}")
+          me = call("getMe")
+          if not me.get("ok"):
+              raise SystemExit("FAIL: Telegram getMe rejected the bot token")
+          print("PASS: Telegram bot token authenticated; bot username:", me["result"].get("username", "(unknown)"))
+          try:
+              chat_info = call("getChat", {"chat_id": chat})
+              if chat_info.get("ok"):
+                  print("PASS: Telegram chat ID resolves; chat type:", chat_info["result"].get("type", "(unknown)"))
+          except RuntimeError as e:
+              raise SystemExit("FAIL: " + str(e))
+          result = call("sendMessage", {"chat_id": chat, "text": "🧪 Test technique Analyse Football Codex : Telegram fonctionne.", "disable_notification": True})
+          if not result.get("ok") or not isinstance(result.get("result"), dict):
+              raise SystemExit("FAIL: Telegram sendMessage returned no confirmation")
+          print("PASS: Telegram test message delivered; message_id:", result["result"].get("message_id"))
+          PY
