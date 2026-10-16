@@ -1,0 +1,95 @@
+name: Orchestrator - 5 football pipeline agents
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["codex/daily-single-pipeline"]
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "supabase/migrations/**"
+      - ".github/workflows/orchestrator-five-agents.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: orchestrator-five-agents
+  cancel-in-progress: false
+
+jobs:
+  agent-1-tests:
+    name: "Agent 1 - Unit tests"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/daily-single-pipeline
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install .
+      - run: python -m unittest discover -s tests -v
+
+  agent-2-odds-collector-check:
+    name: "Agent 2 - Odds collector static checks"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/daily-single-pipeline
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install .
+      - name: Compile collector and market modules
+        run: python -m compileall -q src/football_analysis/collect_odds.py src/football_analysis/markets.py
+
+  agent-3-migration-check:
+    name: "Agent 3 - Migration safety checks"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/daily-single-pipeline
+      - name: Verify odds table migration invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          f=supabase/migrations/202610160001_football_odds.sql
+          test -s "$f"
+          grep -qi 'create table if not exists public.football_odds' "$f"
+          grep -qi 'enable row level security' "$f"
+          grep -qi 'unique' "$f"
+          grep -qi 'check (odds > 1)' "$f"
+
+  agent-4-prediction-model-check:
+    name: "Agent 4 - Prediction and market math"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/daily-single-pipeline
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install .
+      - name: Validate model utility imports
+        run: python -c "from football_analysis.markets import implied_probability, normalize_implied_probabilities, poisson_market_probabilities; assert implied_probability(2.0) == 0.5; assert abs(sum(poisson_market_probabilities(1.4, 1.1)['1X2'].values()) - 1) < 0.03"
+
+  agent-5-workflow-safety:
+    name: "Agent 5 - Workflow and secret safety"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/daily-single-pipeline
+      - name: Ensure collector workflow does not print secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          f=.github/workflows/collect-football-odds.yml
+          test -s "$f"
+          grep -q 'secrets.API_FOOTBALL_KEY' "$f"
+          grep -q 'secrets.SUPABASE_SERVICE_ROLE_KEY' "$f"
+          ! grep -E 'echo .*SUPABASE_SERVICE_ROLE_KEY|print\(.*SUPABASE_SERVICE_ROLE_KEY' "$f"
