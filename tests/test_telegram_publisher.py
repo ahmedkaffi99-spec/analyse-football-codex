@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from football_analysis.telegram_publisher import send_message
+from football_analysis.telegram_publisher import MAX_MESSAGE_LENGTH, send_message, split_message
 
 
 class TelegramPublisherTests(unittest.TestCase):
@@ -11,8 +11,32 @@ class TelegramPublisherTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             send_message("hello", token="token", chat_id="")
 
+    def test_splits_long_text_into_safe_chunks(self):
+        text = ("ligne importante\n" * 1200).strip()
+        chunks = split_message(text)
+        self.assertGreater(len(chunks), 1)
+        self.assertTrue(all(0 < len(chunk) <= MAX_MESSAGE_LENGTH for chunk in chunks))
+        self.assertTrue(all(chunk == chunk.strip() for chunk in chunks))
+
+    def test_short_text_remains_one_chunk(self):
+        self.assertEqual(split_message("preview"), ["preview"])
+
+    @patch("football_analysis.telegram_publisher._send_one")
+    def test_sends_long_report_as_multiple_messages(self, mocked_send):
+        mocked_send.side_effect = [
+            {"ok": True, "result": {"message_id": 41}},
+            {"ok": True, "result": {"message_id": 42}},
+            {"ok": True, "result": {"message_id": 43}},
+        ]
+        text = "x" * (MAX_MESSAGE_LENGTH * 2 + 25)
+        result = send_message(text, token="test-token", chat_id="-100123")
+        self.assertEqual(mocked_send.call_count, 3)
+        self.assertEqual([call.args[0] for call in mocked_send.call_args_list], split_message(text))
+        self.assertEqual(len(result["messages"]), 3)
+        self.assertEqual(result["result"]["message_id"], 43)
+
     @patch("football_analysis.telegram_publisher.urlopen")
-    def test_sends_telegram_message_and_returns_result(self, mocked_urlopen):
+    def test_sends_short_telegram_message_and_returns_result(self, mocked_urlopen):
         class Response:
             def __enter__(self):
                 return self
