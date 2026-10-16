@@ -108,7 +108,7 @@ jobs:
           f=.github/workflows/collect-football-odds.yml
           test -s "$f"
           grep -q 'secrets.API_FOOTBALL_KEY' "$f"
-          grep -q 'secrets.SUPABASE_SERVICE_ROLE_KEY' "$f"
+          ! grep -q 'SUPABASE_SERVICE_ROLE_KEY' "$f"
           if grep -E 'echo .*SUPABASE_SERVICE_ROLE_KEY|print\(.*SUPABASE_SERVICE_ROLE_KEY' "$f"; then
             echo "Potential secret disclosure pattern found."
             exit 1
