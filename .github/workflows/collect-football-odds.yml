@@ -1,10 +1,10 @@
-name: Collect API-Football odds snapshots
+name: Collect API-Football 1xBet odds snapshots
 
 on:
   workflow_dispatch:
     inputs:
       odds_date:
-        description: "UTC date to collect odds for (YYYY-MM-DD; empty means today)"
+        description: "UTC date to collect 1xBet odds for (YYYY-MM-DD; empty means today)"
         required: false
         type: string
   push:
@@ -54,5 +54,5 @@ jobs:
           fi
       - name: Install package
         run: python -m pip install .
-      - name: Collect all available odds markets
+      - name: Collect only 1xBet odds markets
         run: python -m football_analysis.collect_odds
