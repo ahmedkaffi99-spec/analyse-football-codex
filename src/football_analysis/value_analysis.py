@@ -115,10 +115,11 @@ def score_market_predictions(odds_row: dict[str,Any], *, model_1x2: dict[str,flo
             edge=p_model-float(p_market)
             ev=p_model*float(market["odds"])-1
             blended=blend_probability(p_model,p_market,weight=market_weight)
-            blended_ev=blended*float(market["odds"])-1
+            blended_probability=round(blended,6)
+            blended_ev=blended_probability*float(market["odds"])-1
             item.update(model_probability=round(p_model,6),edge=round(edge,6),
                 edge_pct_points=round(edge*100,2),expected_value=round(ev,6),
-                blended_probability=round(blended,6),blended_expected_value=round(blended_ev,6),
+                blended_probability=blended_probability,blended_expected_value=round(blended_ev,6),
                 value_status="positive_ev" if ev>0 else "negative_ev")
         scored.append(item)
     return sorted(scored,key=lambda item:(item["expected_value"] is None,
