@@ -56,16 +56,39 @@ def _graded_rows(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
 def _metrics(rows: Sequence[Mapping[str, Any]], n_min: int) -> dict[str, Any]:
     graded = _graded_rows(rows)
     n = len(graded)
-    if n < n_min:
-        return {"available": False, "n": n, "n_min": n_min, "reason": f"insufficient graded sample ({n} < {n_min})"}
-    bets = [row for row in graded if row["_outcome"] != "push" and row["_odds"] is not None]
-    if not bets:
-        return {"available": False, "n": n, "n_bets": 0, "n_min": n_min, "reason": "no settled bets with valid odds"}
+    settled = [row for row in graded if row["_outcome"] != "push"]
+    scored = [(row["_probability"], 1 if row["_outcome"] == "win" else 0) for row in settled]
+    brier = sum((probability - actual) ** 2 for probability, actual in scored) / len(scored) if scored else None
+    epsilon = 1e-15
+    log_loss = (sum(-actual * __import__("math").log(max(probability, epsilon))
+                     -(1 - actual) * __import__("math").log(max(1 - probability, epsilon)))
+                     for probability, actual in scored) / len(scored) if scored else None
+    calibration = []
+    for index in range(10):
+        lower, upper = index / 10, (index + 1) / 10
+        sample = [(p, y) for p, y in scored if lower <= p < upper or (index == 9 and p == 1.0)]
+        if sample:
+            calibration.append({"bin": f"{lower:.1f}-{upper:.1f}", "n": len(sample),
+                               "mean_probability": round(sum(p for p, _ in sample) / len(sample), 4),
+                               "observed_rate": round(sum(y for _, y in sample) / len(sample), 4)})
+    wins = sum(row["_outcome"] == "win" for row in settled)
+    bets = [row for row in settled if row["_odds"] is not None]
     profit = sum(row["_odds"] - 1 if row["_outcome"] == "win" else -1 for row in bets)
-    wins = sum(row["_outcome"] == "win" for row in bets)
-    return {"available": True, "n": n, "n_bets": len(bets), "wins": wins,
-            "win_rate": round(wins / len(bets), 4), "profit_units": round(profit, 4),
-            "roi": round(profit / len(bets), 4)}
+    edge = [(row["_probability"] * row["_odds"] - 1) for row in bets]
+    metrics = {"available": n >= n_min, "n": n, "n_bets": len(bets), "wins": wins,
+               "win_rate": round(wins / len(settled), 4) if settled else None,
+               "brier": round(brier, 4) if brier is not None else None,
+               "log_loss": round(log_loss, 4) if log_loss is not None else None,
+               "calibration": calibration,
+               "mean_edge": round(sum(edge) / len(edge), 4) if edge else None,
+               "profit_units": round(profit, 4) if bets else None,
+               "roi": round(profit / len(bets), 4) if bets else None,
+               "n_min": n_min}
+    if n < n_min:
+        metrics["reason"] = f"insufficient graded sample ({n} < {n_min})"
+    elif not bets:
+        metrics["reason"] = "no settled bets with valid odds"
+    return metrics
 
 
 def _winner(roi_a: float | None, roi_b: float | None, model_a: str, model_b: str) -> str | None:
@@ -100,6 +123,9 @@ def compare_market(
     metrics_a, metrics_b = _metrics(rows_a, n_min), _metrics(rows_b, n_min)
     if not (metrics_a["available"] and metrics_b["available"]):
         return {"decision": "unavailable", "reason": "insufficient historical sample for one or both models",
+                "model_a": metrics_a, "model_b": metrics_b, "stable": None}
+    if metrics_a["roi"] is None or metrics_b["roi"] is None:
+        return {"decision": "unavailable", "reason": "ROI unavailable because no settled bets have valid odds for one or both models",
                 "model_a": metrics_a, "model_b": metrics_b, "stable": None}
     decision = _winner(metrics_a["roi"], metrics_b["roi"], model_a, model_b)
     split_a1, split_a2 = _chronological_halves(rows_a)
