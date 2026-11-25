@@ -9,7 +9,7 @@
 | Team names, aliases, normalization | team_names.py, match_resolution.py | Ported/adapted; needs cross-provider parity fixtures |
 | Competition catalogue | competitions.py | Ported; coverage audit needed |
 | API-Football fixtures/stat client | api_football_client.py, daily_api_pipeline.py | Ported; provider quota/coverage checks remain |
-| Odds collection and provider snapshots | collect_odds.py, provider_snapshot.py | Partial; source OddsPapi/provider-specific behaviours not fully parity-tested |
+| Odds collection and provider snapshots | collect_odds.py, provider_snapshot.py, oddspapi_normalizer.py | API-Football collector remains primary; offline OddsPapi payload normalizer migrated with diagnostics, but live provider collector/quota/fallback is not migrated |
 | Market catalogue and probability math | markets.py, all_markets.py, poisson.py, probability.py | Ported/adapted; integer-line pushes and market-specific distributions remain gaps |
 | Features/team strengths | feature_engine.py, strengths.py, statistical_shrinkage.py | Count-market means shrink toward source priors (k=5) and supported metrics apply measured home/away factors; broader feature parity and calibration remain |
 | Market specialists / edge / value | market_agents.py, value_analysis.py, probability_blend.py | Partial; several source market families/LLM review rules not migrated |
