@@ -38,7 +38,18 @@ class BookmakerConsensusMigrationTests(unittest.TestCase):
         ]}))
         self.assertIsNone(no_vig_probabilities({"selections": [{"selection": "Home", "odds": 1.0}]}))
 
-    def test_weighted_consensus_and_reference_difference(self):
+    def test_market_without_name_is_not_aggregated(self):
+        books = {
+            "Pinnacle": [{"selections": [{"selection": "Home", "odds": 2.0},
+                                        {"selection": "Away", "odds": 2.0}]}],
+            "Book A": [{"selections": [{"selection": "Home", "odds": 2.1},
+                                      {"selection": "Away", "odds": 1.9}]}],
+            "Book B": [{"selections": [{"selection": "Home", "odds": 2.2},
+                                      {"selection": "Away", "odds": 1.8}]}],
+        }
+        self.assertEqual(consensus(books), {})
+
+    def test_weighted_consensus_and_reference_difference(selfself):
         books = {
             "Pinnacle": [market(1.8, 3.6, 4.2)],
             "Book A": [market(2.0, 3.5, 4.0)],
