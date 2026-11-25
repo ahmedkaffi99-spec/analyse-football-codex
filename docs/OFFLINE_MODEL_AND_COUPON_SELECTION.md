@@ -24,7 +24,7 @@ Run it with `python -m football_analysis.preview_api --host 127.0.0.1 --port 800
 - POST /api/preview/coupon
 - POST /api/audit/coverage
 
-The API uses only local request data and pure Python modules. It is loopback-only by default, accepts an optional bearer token, requires a token before non-loopback binding, limits request bodies to 1 MB, and never logs request payloads. It is not a database-backed production API and must not be exposed publicly without a security review.
+The API uses only local request data and pure Python modules. It is loopback-only, accepts an optional bearer token, refuses non-loopback HTTP binding even when a token is supplied, limits request bodies to 1 MB, and never logs request payloads. For remote use, place it behind a separately reviewed HTTPS reverse proxy. It is not a database-backed production API.
 
 ## Historical model selector
 
