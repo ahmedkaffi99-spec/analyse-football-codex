@@ -31,17 +31,23 @@ def _graded_rows(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
         raw_probability = row.get("probability", row.get("proba_pct"))
         try:
             probability = float(raw_probability)
-            odds = float(row.get("decimal_odds", row.get("cote")))
         except (TypeError, ValueError):
             continue
+        raw_odds = row.get("decimal_odds", row.get("cote"))
+        try:
+            odds = float(raw_odds) if raw_odds is not None else None
+        except (TypeError, ValueError):
+            odds = None
         if not isfinite(probability) or not 0 <= probability <= 1:
             # Legacy French records use percent. Accept only explicitly named proba_pct.
             try:
                 probability = float(row.get("proba_pct")) / 100
             except (TypeError, ValueError):
                 continue
-        if not isfinite(probability) or not 0 <= probability <= 1 or not isfinite(odds) or odds <= 1:
+        if not isfinite(probability) or not 0 <= probability <= 1:
             continue
+        if odds is not None and (not isfinite(odds) or odds <= 1):
+            odds = None
         valid.append({**row, "_outcome": outcome, "_probability": probability, "_odds": odds,
                      "_date": str(row.get("date") or row.get("jour") or row.get("kickoff") or row.get("horodatage") or "")})
     return valid
@@ -52,9 +58,9 @@ def _metrics(rows: Sequence[Mapping[str, Any]], n_min: int) -> dict[str, Any]:
     n = len(graded)
     if n < n_min:
         return {"available": False, "n": n, "n_min": n_min, "reason": f"insufficient graded sample ({n} < {n_min})"}
-    bets = [row for row in graded if row["_outcome"] != "push"]
+    bets = [row for row in graded if row["_outcome"] != "push" and row["_odds"] is not None]
     if not bets:
-        return {"available": False, "n": n, "n_bets": 0, "n_min": n_min, "reason": "no settled bets"}
+        return {"available": False, "n": n, "n_bets": 0, "n_min": n_min, "reason": "no settled bets with valid odds"}
     profit = sum(row["_odds"] - 1 if row["_outcome"] == "win" else -1 for row in bets)
     wins = sum(row["_outcome"] == "win" for row in bets)
     return {"available": True, "n": n, "n_bets": len(bets), "wins": wins,
