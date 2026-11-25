@@ -67,7 +67,7 @@ The first feature version covers rolling goals and available xG, shots, corners 
 
 ## Reference-migration checkpoint (offline only)
 
-The migration branch also contains three adapted pure-Python research helpers:
+The migration branch also contains adapted pure-Python research helpers and expanded fixture-name aliases for common French/English national-team names:
 - `bookmaker_consensus`: no-vig bookmaker consensus, reference comparison and weighted books; malformed/incomplete market observations are ignored.
 - `oddspapi_normalizer`: offline adapter for raw OddsPapi fixture market payloads with price validation and missing-book/market diagnostics.
 - API-Football client classifies exhausted daily quota separately from retryable 429 rate limits.
