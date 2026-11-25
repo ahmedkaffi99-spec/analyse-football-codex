@@ -42,7 +42,7 @@ def preview_1x2(payload: Mapping[str, Any]) -> dict[str, Any]:
             raise ValueError(f"duplicate fixture_id: {match_id}")
         seen.add(match_id)
         try:
-            home_xg, away_xg = float(fixture["home_expected_goals"]), float(fixture["away_expected_goals"]))
+            home_xg, away_xg = float(fixture["home_expected_goals"]), float(fixture["away_expected_goals"])
         except (KeyError, TypeError, ValueError):
             raise ValueError(f"fixture {match_id} requires numeric expected goals") from None
         if not isfinite(home_xg) or not isfinite(away_xg):
