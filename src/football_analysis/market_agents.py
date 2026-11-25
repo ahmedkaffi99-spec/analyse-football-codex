@@ -47,7 +47,10 @@ def team_metric_rate(market: str, home_stats: dict[str, Any], away_stats: dict[s
     if not isinstance(h, (int, float)) or not isinstance(a, (int, float)) or hn < 3 or an < 3:
         return None
     h_adjusted = shrink_metric(market, h, hn, shrink_k)
-    a_adjusted = shrink_metric(market, a, an, shrink_k)\n    if h_adjusted is None or a_adjusted is None:\n        return None\n    return max(0.0, h_adjusted + a_adjusted)
+    a_adjusted = shrink_metric(market, a, an, shrink_k)
+    if h_adjusted is None or a_adjusted is None:
+        return None
+    return max(0.0, h_adjusted + a_adjusted)
 
 def win_to_nil_probability(home_xg: float, away_xg: float, selection: str) -> float:
     """Independent Poisson score-grid probability that a side wins without conceding."""
