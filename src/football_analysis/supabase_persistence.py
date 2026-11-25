@@ -27,6 +27,9 @@ def _request(table: str, rows: list[dict[str, Any]], *, conflict: str | None = N
         "Content-Type": "application/json",
         "Prefer": "resolution=merge-duplicates,return=representation",
     }
+    # Supabase sb_secret_* are opaque API keys, not JWTs. Legacy service_role keys are JWTs.
+    if not key.startswith("sb_secret_"):
+        headers["Authorization"] = f"Bearer {key}"
     req = urllib.request.Request(url, data=json.dumps(rows, ensure_ascii=False).encode(), headers=headers, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=45) as response:
