@@ -33,7 +33,7 @@ class StatisticalShrinkageTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             apply_home_advantage("corners", -1.0, 4.0)
 
-    def test_registered_and_unregistered_metric_behavior(selfself):
+    def test_registered_and_unregistered_metric_behavior(self):
         self.assertAlmostEqual(shrink_metric("corners", 6, 5), (6 * 5 + DEFAULT_PRIORS["corners"] * 5) / 10)
         self.assertEqual(shrink_metric("red_cards", 0.1, 5), 0.1)
 
