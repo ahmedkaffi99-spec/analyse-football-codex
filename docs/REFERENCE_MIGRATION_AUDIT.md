@@ -36,7 +36,7 @@
 
 ### backend/app/
 - FastAPI configuration, database models, auth/guards, routers for matches/coupons/runs, persistence, archives, stats, alerts, budgets, learning, scheduled verification and pipeline service adapters.
-- Target currently has no equivalent full backend/router/service layer. Persistence SQL and pipeline adapters are a foundation, not a migrated backend.
+- Target now includes preview_api.py: local-only health, 1X2 prediction, coupon preview and fixture-coverage audit endpoints. It is not the source's authenticated database-backed API. Runs/match/coupon listing, stats, alerts, budgets, background orchestration and persistence routes remain missing.
 
 ### Operational workflows and documentation
 - Source scheduled daily pipeline, data listing, result verification, learning/backfill and diagnostics workflows are not all migrated.
