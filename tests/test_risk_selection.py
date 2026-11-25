@@ -25,6 +25,14 @@ class RiskSelectionTests(unittest.TestCase):
         self.assertTrue(any("fixture already represented" in row["rejection_reasons"][0]
                           for row in report["rejected"]))
 
+    def test_coupon_leg_cap_reports_unselected_valid_candidates(self):
+        rows = [candidate("m1", .8), candidate("m2", .75), candidate("m3", .7), candidate("m4", .65)]
+        report = select_coupon_preview(rows, RiskConfig(coupon_min=2, coupon_max=2))
+        self.assertTrue(report["generated"])
+        self.assertEqual([row["fixture_id"] for row in report["selections"]], ["m1", "m2"])
+        self.assertEqual(len(report["rejected"]), 2)
+        self.assertTrue(all("coupon leg cap reached" in row["rejection_reasons"] for row in report["rejected"]))
+
     def test_duplicate_pick_key_rejected_even_when_fixture_cap_allows_two(self):
         rows = [candidate("m1", .7), candidate("m1", .6), candidate("m2", .65)]
         report = select_coupon_preview(rows, RiskConfig(coupon_min=2, coupon_max=3, max_per_fixture=2))
