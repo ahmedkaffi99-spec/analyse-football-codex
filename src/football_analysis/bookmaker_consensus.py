@@ -80,7 +80,10 @@ def consensus(
         for market in markets:
             if not isinstance(market, Mapping):
                 continue
-            key = (market.get("market", market.get("marche")), market.get("handicap"))
+            market_name = market.get("market") or market.get("marche")
+            if not isinstance(market_name, str) or not market_name.strip():
+                continue
+            key = (market_name.strip(), market.get("handicap"))
             if key in seen_market_keys:
                 continue
             probabilities = no_vig_probabilities(market)
