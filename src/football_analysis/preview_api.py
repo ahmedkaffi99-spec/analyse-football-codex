@@ -146,9 +146,9 @@ def make_handler(api_token: str | None = None):
 
 
 def run_server(host: str = "127.0.0.1", port: int = 8000, api_token: str | None = None) -> None:
-    """Run local preview API; non-loopback hosts require an explicit token."""
+    """Run local preview API; non-loopback binding is intentionally refused."""
     if host not in LOOPBACK_HOSTS and not api_token:
-        raise ValueError("non-loopback binding requires api_token")
+        raise ValueError("non-loopback binding is disabled; use a reviewed HTTPS reverse proxy")
     server = HTTPServer((host, port), make_handler(api_token))
     try:
         print(f"Offline preview API listening on http://{host}:{port}")
