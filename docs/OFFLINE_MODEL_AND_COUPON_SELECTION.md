@@ -6,7 +6,7 @@ This document describes two migrated, deterministic helpers. Neither is called b
 
 Module: src/football_analysis/api_football_client.py
 
-The client now distinguishes daily quota exhaustion from transient HTTP 429 rate limits. A zero daily-remaining header or recognized daily-quota response text raises ApiFootballDailyQuotaError immediately without retry/sleep; other 429s retain bounded retry/backoff. The response body is used only for classification and is not included in the error message. The client remains explicitly call-driven; no provider request is made by tests.
+The client now has an injectable per-minute sliding-window limiter (default 9 requests/minute; configurable up to 300), distinguishes daily quota exhaustion from transient HTTP 429 rate limits, and captures provider quota headers. A zero daily-remaining header or recognized daily-quota response text raises ApiFootballDailyQuotaError immediately without retry/sleep; other 429s retain bounded retry/backoff. The response body is used only for classification and is not included in the error message. The client remains explicitly call-driven; no provider request is made by tests.
 
 ## OddsPapi payload normalizer
 
