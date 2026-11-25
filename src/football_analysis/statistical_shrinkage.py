@@ -10,7 +10,11 @@ from math import isfinite
 from typing import Any
 
 DEFAULT_K = 5.0
-HOME_ADVANTAGE_FACTORS = {\n    "corners": 1.107, "shots": 1.101, "shots_on_target": 1.103,\n    "fouls": 0.985, "yellow_cards": 0.934,\n}\nDEFAULT_PRIORS = {
+HOME_ADVANTAGE_FACTORS = {
+    "corners": 1.107, "shots": 1.101, "shots_on_target": 1.103,
+    "fouls": 0.985, "yellow_cards": 0.934,
+}
+DEFAULT_PRIORS = {
     "goals": 1.335,
     "corners": 4.8,
     "yellow_cards": 2.1,
