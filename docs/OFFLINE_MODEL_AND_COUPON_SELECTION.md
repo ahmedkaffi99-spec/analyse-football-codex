@@ -2,6 +2,18 @@
 
 This document describes two migrated, deterministic helpers. Neither is called by the live daily pipeline. They consume supplied data only and do not place bets, publish Telegram messages, or write to external services.
 
+## Local preview API
+
+Module: src/football_analysis/preview_api.py
+
+Run it with `python -m football_analysis.preview_api --host 127.0.0.1 --port 8000`. The local HTTP facade exposes:
+- GET /health
+- POST /api/preview/1x2
+- POST /api/preview/coupon
+- POST /api/audit/coverage
+
+The API uses only local request data and pure Python modules. It is loopback-only by default, accepts an optional bearer token, requires a token before non-loopback binding, limits request bodies to 1 MB, and never logs request payloads. It is not a database-backed production API and must not be exposed publicly without a security review.
+
 ## Historical model selector
 
 Module: src/football_analysis/historical_model_selector.py
