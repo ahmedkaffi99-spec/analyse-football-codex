@@ -6,7 +6,7 @@
 
 | Source capability | Target/adaptation | Status |
 |---|---|---|
-| Team names, aliases, normalization | team_names.py, match_resolution.py | Ported/adapted; needs cross-provider parity fixtures |
+| Team names, aliases, normalization | team_names.py, match_resolution.py | Ported/adapted with additional French/English national-team aliases; needs cross-provider parity fixtures |
 | Competition catalogue | competitions.py | Ported; coverage audit needed |
 | API-Football fixtures/stat client | api_football_client.py, daily_api_pipeline.py | Ported; daily-quota 429 is now non-retryable and distinct from transient rate limits; provider coverage still needs verification |
 | Odds collection and provider snapshots | collect_odds.py, provider_snapshot.py, oddspapi_normalizer.py | API-Football collector remains primary; offline OddsPapi payload normalizer migrated with diagnostics, but live provider collector/quota/fallback is not migrated |
