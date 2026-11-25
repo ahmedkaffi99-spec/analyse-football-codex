@@ -29,6 +29,10 @@ class ApiFootballRateLimitError(ApiFootballError):
     """The provider rejected a request due to rate limiting."""
 
 
+class ApiFootballDailyQuotaError(ApiFootballRateLimitError):
+    """The provider daily request quota is exhausted; retrying is not useful."""
+
+
 class ApiFootballResponseError(ApiFootballError):
     """The provider returned an invalid or unsuccessful response."""
 
@@ -113,6 +117,10 @@ class ApiFootballClient:
                 if exc.code in (401, 403):
                     raise ApiFootballAuthError(f"API-Football authentication/permission failed (HTTP {exc.code})") from exc
                 if exc.code == 429:
+                    body = exc.read().decode("utf-8", "replace").lower()
+                    daily_markers = ("daily quota", "daily limit", "limit for the day", "requests per day", "request limit of")
+                    if self.last_quota.daily_remaining == 0 or any(marker in body for marker in daily_markers):
+                        raise ApiFootballDailyQuotaError("API-Football daily request quota exhausted") from exc
                     if attempt >= self.max_retries:
                         raise ApiFootballRateLimitError(f"API-Football rate limit persisted for {path} after retries") from exc
                     retry_after = self._retry_after(exc.headers)
