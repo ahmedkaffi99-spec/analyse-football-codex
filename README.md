@@ -71,6 +71,7 @@ The migration branch also contains three adapted pure-Python research helpers:
 - `bookmaker_consensus`: no-vig bookmaker consensus, reference comparison and weighted books; malformed/incomplete market observations are ignored.
 - `risk_selection`: deterministic candidate filters, rejection explanations, fixture cap and coupon preview; no execution.
 - `historical_model_selector`: per-market historical ROI comparison with Brier/log-loss/calibration/edge metrics and chronological stability diagnostic.
+- `statistical_shrinkage`: additive priors for count-stat rates and source-measured home/away count adjustments.
 
 These helpers are not wired into production daily selection. Their input contracts and limitations are documented in [docs/OFFLINE_MODEL_AND_COUPON_SELECTION.md](docs/OFFLINE_MODEL_AND_COUPON_SELECTION.md). The source-to-target coverage and missing modules are tracked in [docs/REFERENCE_MIGRATION_AUDIT.md](docs/REFERENCE_MIGRATION_AUDIT.md). Full production-path parity is still in progress; do not treat preview output as a betting recommendation.
 
