@@ -10,7 +10,7 @@ from math import isfinite
 from typing import Any
 
 DEFAULT_K = 5.0
-DEFAULT_PRIORS = {
+HOME_ADVANTAGE_FACTORS = {\n    "corners": 1.107, "shots": 1.101, "shots_on_target": 1.103,\n    "fouls": 0.985, "yellow_cards": 0.934,\n}\nDEFAULT_PRIORS = {
     "goals": 1.335,
     "corners": 4.8,
     "yellow_cards": 2.1,
@@ -64,3 +64,21 @@ def shrink_metric(metric: str, value: Any, sample_n: Any, k: float = DEFAULT_K) 
         except (TypeError, ValueError):
             return None
     return shrink_mean(value, sample_n, prior, k)
+
+
+def apply_home_advantage(metric: str, home_mean: float, away_mean: float) -> tuple[float, float]:
+    """Apply source-measured home/away multipliers to supported count metrics.
+
+    The home factor and its complement (2-factor) are used so an equal pair of
+    rates keeps its total mean unchanged. Unsupported metrics are returned raw.
+    """
+    factor = HOME_ADVANTAGE_FACTORS.get(metric)
+    try:
+        home, away = float(home_mean), float(away_mean)
+    except (TypeError, ValueError):
+        raise ValueError("home and away means must be numeric")
+    if not isfinite(home) or not isfinite(away) or home < 0 or away < 0:
+        raise ValueError("home and away means must be finite and non-negative")
+    if factor is None:
+        return home, away
+    return max(0.15, home * factor), max(0.15, away * (2.0 - factor))
