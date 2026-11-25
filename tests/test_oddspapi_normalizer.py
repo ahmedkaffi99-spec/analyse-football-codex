@@ -48,17 +48,19 @@ class OddsPapiNormalizerTests(unittest.TestCase):
         self.assertEqual(result["diagnostics"]["invalid_prices"], 3)
 
     def test_bookmaker_name_matching_is_case_insensitive(self):
-        result = normalize_oddspapi_payload(event({"100": {"outcomes": {
+        payload = event({"100": {"outcomes": {
             "1": {"players": {"0": {"price": 2.0}}},
             "X": {"players": {"0": {"price": 3.0}}},
-        }}, bookmaker="1XBET"), CATALOG)
+        }}}, bookmaker="1XBET")
+        result = normalize_oddspapi_payload(payload, CATALOG)
         self.assertEqual(result["status"], "ok")
 
     def test_missing_catalog_uses_raw_fallback_labels(self):
-        result = normalize_oddspapi_payload(event({"999": {"outcomes": {
+        payload = event({"999": {"outcomes": {
             "a": {"players": {"0": {"price": 2.0}}},
             "b": {"players": {"0": {"price": 2.0}}},
-        }}), {})
+        }}})
+        result = normalize_oddspapi_payload(payload, {})
         self.assertEqual(result["markets"][0]["market"], "Market 999")
         self.assertEqual(result["markets"][0]["selections"][0]["selection"], "Option a")
 
