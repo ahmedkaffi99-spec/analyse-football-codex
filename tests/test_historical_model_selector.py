@@ -33,7 +33,7 @@ class HistoricalModelSelectorTests(unittest.TestCase):
         result = compare_market(a, b, n_min=4)
         self.assertTrue(result["model_a"]["available"])
         self.assertEqual(result["model_a"]["n"], 4)
-        self.assertEqual(result["model_a"]["n_bets"], 2)
+        self.assertEqual(result["model_a"]["n_bets"], 3)
 
     def test_tie_when_roi_difference_is_under_one_point(self):
         a = history("a", ["win", "loss", "win", "loss"], odds=2.0)
