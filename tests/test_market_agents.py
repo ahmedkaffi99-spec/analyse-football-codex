@@ -1,8 +1,25 @@
 import unittest
-from football_analysis.market_agents import count_market_probability, team_metric_rate
+from football_analysis.market_agents import count_market_probability, negative_binomial_pmf, team_metric_rate
 from football_analysis.all_markets import _category, extract_market_predictions
 
 class SpecialistMarketAgentTests(unittest.TestCase):
+    def test_negative_binomial_matches_requested_mean_and_variance(self):
+        rate, variance = 10.0, 13.5
+        probs = [negative_binomial_pmf(rate, k, variance) for k in range(201)]
+        self.assertAlmostEqual(sum(probs), 1.0, places=6)
+        mean = sum(k * p for k, p in enumerate(probs))
+        second = sum(k * k * p for k, p in enumerate(probs))
+        self.assertAlmostEqual(mean, rate, places=5)
+        self.assertAlmostEqual(second - mean * mean, variance, places=4)
+
+    def test_count_market_uses_overdispersion_when_variance_supplied(selfself):
+        over_nb = count_market_probability(10.0, "Over 8.5", 8.5, variance=13.5)
+        under_nb = count_market_probability(10.0, "Under 8.5", 8.5, variance=13.5)
+        over_poisson = count_market_probability(10.0, "Over 8.5", 8.5)
+        self.assertAlmostEqual(over_nb + under_nb, 1.0, places=6)
+        self.assertNotAlmostEqual(over_nb, over_poisson, places=4)
+        self.assertIsNone(count_market_probability(10.0, "Over 8.5", 8.5, variance=float("nan")))
+
     def test_market_names_do_not_confuse_shots_with_goals(self):
         self.assertEqual(_category("Total Shots Over/Under"), "shots")
         self.assertEqual(_category("Total Corners"), "corners")
