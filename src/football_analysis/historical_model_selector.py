@@ -61,7 +61,7 @@ def _metrics(rows: Sequence[Mapping[str, Any]], n_min: int) -> dict[str, Any]:
     brier = sum((probability - actual) ** 2 for probability, actual in scored) / len(scored) if scored else None
     epsilon = 1e-15
     log_loss = (sum(-actual * log(max(probability, epsilon))
-                     -(1 - actual) * __import__("math").log(max(1 - probability, epsilon)))
+                     -(1 - actual) * log(max(1 - probability, epsilon)))
                      for probability, actual in scored) / len(scored) if scored else None
     calibration = []
     for index in range(10):
@@ -134,7 +134,8 @@ def compare_market(
     halves = [_metrics(split_a1, half_min), _metrics(split_b1, half_min),
               _metrics(split_a2, half_min), _metrics(split_b2, half_min)]
     stable = None
-    if all(m["available"] for m in halves):
+    dates_complete = all(row["_date"] for row in _graded_rows(rows_a) + _graded_rows(rows_b))
+    if dates_complete and all(m["available"] and m["roi"] is not None for m in halves):
         first = _winner(halves[0]["roi"], halves[1]["roi"], model_a, model_b)
         second = _winner(halves[2]["roi"], halves[3]["roi"], model_a, model_b)
         stable = first == decision and second == decision
