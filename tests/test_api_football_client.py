@@ -30,6 +30,25 @@ class FakeResponse:
 
 
 class ApiFootballClientTests(unittest.TestCase):
+    def test_per_minute_rate_limiter_waits_before_second_call(self):
+        clock, sleeps, calls = [0.0], [], []
+        def sleep(seconds):
+            sleeps.append(seconds)
+            clock[0] += seconds
+        def opener(_request, timeout=None):
+            calls.append(1)
+            return FakeResponse('{"response":[],"errors":[]}')
+        client = ApiFootballClient("test", requests_per_minute=1, opener=opener,
+                                 monotonic=lambda: clock[0], sleep=sleep)
+        client.get("fixtures")
+        client.get("fixtures")
+        self.assertEqual(len(calls), 2)
+        self.assertGreaterEqual(sleeps[0], 60.0)
+
+    def test_invalid_rate_limit_configuration_rejected(self):
+        with self.assertRaises(ValueError):
+            ApiFootballClient("test", requests_per_minute=0)
+
     def test_requires_key_without_making_request(self):
         with self.assertRaises(ApiFootballAuthError):
             ApiFootballClient(api_key="")
