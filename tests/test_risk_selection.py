@@ -19,9 +19,9 @@ class RiskSelectionTests(unittest.TestCase):
         ]
         report = select_coupon_preview(candidates, RiskConfig(coupon_min=2, coupon_max=3))
         self.assertTrue(report["generated"])
-        self.assertEqual([row["fixture_id"] for row in report["selections"]], ["m1", "m2"])
-        self.assertAlmostEqual(report["combined_probability"], .65 * .60)
-        self.assertAlmostEqual(report["total_odds"], 3.0)
+        self.assertEqual([row["fixture_id"] for row in report["selections"]], ["m1", "m2", "m3"])
+        self.assertAlmostEqual(report["combined_probability"], .65 * .60 * .55)
+        self.assertAlmostEqual(report["total_odds"], 5.4)
         self.assertTrue(any("fixture already represented" in row["rejection_reasons"][0]
                           for row in report["rejected"]))
 
