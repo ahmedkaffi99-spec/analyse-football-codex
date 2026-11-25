@@ -124,6 +124,10 @@ def select_coupon_preview(
     accepted.sort(key=lambda c: (float(c["probability"]), float(c.get("edge") or 0)), reverse=True)
     selected, seen_fixture, seen_pick = [], set(), set()
     for candidate in accepted:
+        if len(selected) >= config.coupon_max:
+            candidate["rejection_reasons"] = ["coupon leg cap reached"]
+            rejected.append(candidate)
+            continue
         fixture = str(candidate.get("fixture_id") or candidate.get("match_id")).strip()
         pick_key = (fixture, str(candidate.get("market") or candidate.get("category") or "").strip(),
                     str(candidate.get("selection") or "").strip().casefold(), candidate.get("line"))
