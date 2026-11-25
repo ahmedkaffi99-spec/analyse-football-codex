@@ -70,7 +70,7 @@ The first feature version covers rolling goals and available xG, shots, corners 
 The migration branch also contains adapted pure-Python research helpers and expanded fixture-name aliases for common French/English national-team names:
 - `bookmaker_consensus`: no-vig bookmaker consensus, reference comparison and weighted books; malformed/incomplete market observations are ignored.
 - `oddspapi_normalizer`: offline adapter for raw OddsPapi fixture market payloads with price validation and missing-book/market diagnostics.
-- API-Football client classifies exhausted daily quota separately from retryable 429 rate limits.
+- API-Football client includes a configurable per-minute sliding-window limiter and classifies exhausted daily quota separately from retryable 429 rate limits.
 - `risk_selection`: deterministic candidate filters, rejection explanations, fixture cap and coupon preview; no execution.
 - `market_families`: stable specialist taxonomy for result, goals, BTTS, handicap, corners, cards, shots, fouls, offsides and derived markets; no LLM review.
 - `historical_model_selector`: per-market historical ROI comparison with Brier/log-loss/calibration/edge metrics and chronological stability diagnostic.
