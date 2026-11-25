@@ -23,9 +23,23 @@ def poisson_pmf(rate: float, count: int) -> float:
         return 0.0
     return math.exp(-rate) * rate**count / math.factorial(count) if rate else float(count == 0)
 
-def count_market_probability(rate: float, selection: str, line: float) -> float | None:
-    """Probability of an integer count being over/under a line."""
-    if rate < 0 or rate > 100 or not math.isfinite(rate):
+def negative_binomial_pmf(rate: float, count: int, variance: float | None = None) -> float:
+    """Moment-parametrized negative binomial; falls back to Poisson without overdispersion."""
+    if rate < 0 or count < 0 or not math.isfinite(rate):
+        return 0.0
+    if variance is None or rate <= 0 or not math.isfinite(variance) or variance <= rate:
+        return poisson_pmf(rate, count)
+    r = rate * rate / (variance - rate)
+    p = r / (r + rate)
+    return math.exp(math.lgamma(count + r) - math.lgamma(r) - math.lgamma(count + 1)
+                   + r * math.log(p) + count * math.log(1 - p))
+
+
+def count_market_probability(rate: float, selection: str, line: float, variance: float | None = None) -> float | None:
+    """Probability of an integer count being over/under a line (Poisson or overdispersed NB)."""
+    if rate < 0 or rate > 100 or not math.isfinite(rate) or not math.isfinite(line) or line < 0:
+        return None
+    if variance is not None and (not math.isfinite(variance) or variance < 0):
         return None
     label = selection.casefold()
     if "over" not in label and "under" not in label:
@@ -33,7 +47,9 @@ def count_market_probability(rate: float, selection: str, line: float) -> float 
     # Asian integer lines can push; skip until push-aware EV is implemented.
     if abs(line - round(line)) < 1e-9:
         return None
-    cdf = sum(poisson_pmf(rate, k) for k in range(max(0, math.floor(line)) + 1))
+    pmf = negative_binomial_pmf if variance is not None and variance > rate else poisson_pmf
+    cdf = sum(pmf(rate, k, variance) if pmf is negative_binomial_pmf else pmf(rate, k)
+               for k in range(max(0, math.floor(line)) + 1))
     return max(0.0, min(1.0, 1.0 - cdf if "over" in label else cdf))
 
 def team_metric_rate(market: str, home_stats: dict[str, Any], away_stats: dict[str, Any], shrink_k: float = 5.0) -> float | None:
