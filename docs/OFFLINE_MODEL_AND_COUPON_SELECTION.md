@@ -14,6 +14,12 @@ Module: src/football_analysis/historical_model_selector.py
 
 Each row can use either target field names (probability, decimal_odds, result, date) or source-compatible French fields (proba_pct, cote, resultat, jour). Legacy proba_pct is interpreted as percentage. Outcomes accepted include win/won/gagne/gagné, loss/lost/perdu and push/refund/rembourse. Pushes are excluded from settled scoring and ROI. Rows without valid odds still contribute to graded sample and proper scoring metrics but not ROI.
 
+## Count-stat Bayesian shrinkage
+
+Module: src/football_analysis/statistical_shrinkage.py
+
+The migrated count-market rate now shrinks each team's measured recent mean toward the source prior using five pseudo-observations by default. This reduces the influence of extreme small samples and still requires both teams to have at least three observed matches in market_agents.py. Passing shrink_k=0 to team_metric_rate disables the shrinkage for an offline comparison. Metrics without a registered prior (currently red cards) remain raw rather than using a fabricated prior. Prior values and k are not yet recalibrated on the target's historical data.
+
 ## Coupon risk preview
 
 Module: src/football_analysis/risk_selection.py
