@@ -95,7 +95,7 @@ def make_handler(api_token: str | None = None):
         def _authorized(self) -> bool:
             if not self.token:
                 return True
-            return self.headers.get("Authorization", "") == f"Bearer {self.token"
+            return self.headers.get("Authorization", "") == f"Bearer {self.token}"
 
         def _send(self, status: int, payload: dict[str, Any]) -> None:
             body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
