@@ -55,6 +55,19 @@ class OddsPapiNormalizerTests(unittest.TestCase):
         result = normalize_oddspapi_payload(payload, CATALOG)
         self.assertEqual(result["status"], "ok")
 
+    def test_multiple_events_keep_fixture_ids_on_markets(self):
+        first = event({"100": {"outcomes": {
+            "1": {"players": {"0": {"price": 2.0}}},
+            "X": {"players": {"0": {"price": 3.0}}},
+        }}})
+        second = event({"100": {"outcomes": {
+            "1": {"players": {"0": {"price": 2.1}}},
+            "X": {"players": {"0": {"price": 3.2}}},
+        }}})
+        second["fixtureId"] = "fixture-2"
+        result = normalize_oddspapi_payload([first, second], CATALOG)
+        self.assertEqual([m["fixture_id"] for m in result["markets"]], ["fixture-1", "fixture-2"])
+
     def test_missing_catalog_uses_raw_fallback_labels(self):
         payload = event({"999": {"outcomes": {
             "a": {"players": {"0": {"price": 2.0}}},
