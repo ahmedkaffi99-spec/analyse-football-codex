@@ -5,7 +5,7 @@ Missing samples stay unsupported; no fallback statistics are fabricated.
 """
 from __future__ import annotations
 import math
-from typing import Any
+from typing import Any\nfrom .statistical_shrinkage import shrink_metric
 
 COUNT_MARKETS = {
     "corners": ("corners_mean",),
@@ -35,7 +35,7 @@ def count_market_probability(rate: float, selection: str, line: float) -> float 
     cdf = sum(poisson_pmf(rate, k) for k in range(max(0, math.floor(line)) + 1))
     return max(0.0, min(1.0, 1.0 - cdf if "over" in label else cdf))
 
-def team_metric_rate(market: str, home_stats: dict[str, Any], away_stats: dict[str, Any]) -> float | None:
+def team_metric_rate(market: str, home_stats: dict[str, Any], away_stats: dict[str, Any], shrink_k: float = 5.0) -> float | None:
     """Combine each team's own recent metric mean; require both samples."""
     fields = COUNT_MARKETS.get(market)
     if not fields:
@@ -45,7 +45,7 @@ def team_metric_rate(market: str, home_stats: dict[str, Any], away_stats: dict[s
     hn, an = home_stats.get(key.replace("_mean", "_n"), 0), away_stats.get(key.replace("_mean", "_n"), 0)
     if not isinstance(h, (int, float)) or not isinstance(a, (int, float)) or hn < 3 or an < 3:
         return None
-    return max(0.0, float(h) + float(a))
+    h_adjusted = shrink_metric(market, h, hn, shrink_k)\n    a_adjusted = shrink_metric(market, a, an, shrink_k)\n    if h_adjusted is None or a_adjusted is None:\n        return None\n    return max(0.0, h_adjusted + a_adjusted)
 
 def win_to_nil_probability(home_xg: float, away_xg: float, selection: str) -> float:
     """Independent Poisson score-grid probability that a side wins without conceding."""
