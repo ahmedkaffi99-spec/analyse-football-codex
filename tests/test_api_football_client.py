@@ -84,6 +84,21 @@ class ApiFootballClientTests(unittest.TestCase):
         with self.assertRaises(ApiFootballRateLimitError):
             client.get("odds")
 
+    def test_daily_quota_429_is_not_retried(self):
+        calls = []
+        def opener(_request, timeout=None):
+            calls.append(1)
+            headers = Message()
+            headers["x-ratelimit-requests-remaining"] = "0"
+            headers["X-RateLimit-Remaining"] = "100"
+            raise urllib.error.HTTPError("https://example.test", 429, "daily quota", headers,
+                                       io.BytesIO(b"request limit for the day exhausted"))
+        client = ApiFootballClient("test", max_retries=4, opener=opener, sleep=lambda _delay: self.fail("daily quota must not sleep"))
+        with self.assertRaises(ApiFootballDailyQuotaError):
+            client.get("fixtures")
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(client.last_quota.daily_remaining, 0)
+
     def test_does_not_retry_authentication_failure(self):
         calls = []
 
