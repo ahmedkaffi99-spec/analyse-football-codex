@@ -1,4 +1,4 @@
-"""Single entry point for preparing a daily 1X2 coupon preview.
+"""Single entry point for offline daily 1X2 prediction previews.
 
 This module is deliberately offline-first. It consumes explicitly supplied fixtures
 and expected-goal estimates; it does not invent fixtures or fetch live odds.
@@ -15,6 +15,7 @@ from typing import Any
 
 from .models import Outcome
 from .poisson import poisson_1x2
+from .coupon_profiles import build_dynamic_profiles, verify_cross_coupon_match_uniqueness
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,14 +49,7 @@ def parse_fixture(row: dict[str, Any]) -> FixtureInput:
     )
 
 
-def build_daily_coupon(rows: list[dict[str, Any]], *, max_legs: int = 5) -> dict[str, Any]:
-    """Build a transparent prediction preview from supplied, pre-match estimates.
-
-    This is not a guarantee of outcomes. Legs are ranked by the highest 1X2
-    outcome probability; no market/odds weighting is applied.
-    """
-    if not 1 <= max_legs <= 20:
-        raise ValueError("max_legs must be between 1 and 20")
+def _score_upcoming(rows: list[dict[str, Any]]) -> tuple[datetime, list[FixtureInput], list[dict[str, Any]]]:
     fixtures = [parse_fixture(row) for row in rows]
     ids = [fixture.match_id for fixture in fixtures]
     if len(ids) != len(set(ids)):
@@ -82,6 +76,17 @@ def build_daily_coupon(rows: list[dict[str, Any]], *, max_legs: int = 5) -> dict
             "model": "independent_poisson_baseline",
         })
     predictions.sort(key=lambda item: (-item["probability"], item["kickoff"], item["match_id"]))
+    return now, fixtures, predictions
+
+
+def build_daily_coupon(rows: list[dict[str, Any]], *, max_legs: int = 5) -> dict[str, Any]:
+    """Build one transparent preview, ranked by highest 1X2 outcome probability.
+
+    No market/odds weighting is applied.
+    """
+    if not 1 <= max_legs <= 20:
+        raise ValueError("max_legs must be between 1 and 20")
+    now, fixtures, predictions = _score_upcoming(rows)
     selected = predictions[:max_legs]
     return {
         "generated_at": now.isoformat(),
@@ -92,6 +97,42 @@ def build_daily_coupon(rows: list[dict[str, Any]], *, max_legs: int = 5) -> dict
         "coupon": selected,
         "status": "preview_only" if selected else "no_upcoming_fixtures",
         "warning": "Prediction estimates are uncertain; this is not a guarantee or financial advice.",
+    }
+
+
+def build_daily_coupons(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Compose disjoint preview coupons using the reference's dynamic sizing tiers.
+
+    Fixtures are ranked by the model's 1X2 confidence. Each coupon consumes
+    matches from the remaining pool, so the same match cannot appear twice.
+    This is a research preview, not a betting workflow.
+    """
+    now, fixtures, predictions = _score_upcoming(rows)
+    profiles = build_dynamic_profiles(len(predictions))
+    remaining = list(predictions)
+    coupons = []
+    for profile in profiles:
+        selected = remaining[:profile["max_legs"]]
+        remaining = remaining[len(selected):]
+        coupons.append({
+            "profile": profile["key"],
+            "label": profile["label"],
+            "leg_budget": profile["max_legs"],
+            "selections": selected,
+            "status": "preview_only",
+        })
+    verify_cross_coupon_match_uniqueness(coupons)
+    return {
+        "generated_at": now.isoformat(),
+        "model": "independent_poisson_baseline",
+        "market_weight": 0.0,
+        "fixtures_received": len(fixtures),
+        "eligible_matches": len(predictions),
+        "coupon_count": len(coupons),
+        "coupons": coupons,
+        "unused_matches": len(remaining),
+        "status": "preview_only" if coupons else ("insufficient_matches" if predictions else "no_upcoming_fixtures"),
+        "warning": "Model probabilities are uncertain. Coupons are offline previews only; no odds, bets, or publishing are involved.",
     }
 
 
@@ -109,6 +150,26 @@ def render_telegram_message(report: dict[str, Any]) -> str:
         lines.append(f"{index}. {leg['home']} – {leg['away']} ({kickoff})")
         lines.append(f"   Pronostic 1X2 : {leg['pick_label']} | Probabilité modèle : {leg['probability']:.0%}")
     lines.extend(["", "⚠️ Estimations incertaines, pas une garantie de résultat."])
+    return "\n".join(lines)
+
+
+def render_telegram_coupons(report: dict[str, Any]) -> str:
+    """Render multiple offline previews as plain text; never sends the message."""
+    coupons = report.get("coupons") or []
+    if not coupons:
+        return "⚽ Analyse Football Codex\nAucun coupon : moins de deux matchs futurs éligibles."
+    lines = [
+        "⚽ ANALYSE FOOTBALL — PRÉVISUALISATION MULTI-COUPONS",
+        f"Modèle : {report['model']} | Cotes : désactivées",
+        "",
+    ]
+    for coupon in coupons:
+        lines.append(f"{coupon['label']} ({len(coupon['selections'])}/{coupon['leg_budget']} jambes)")
+        for index, leg in enumerate(coupon["selections"], 1):
+            kickoff = datetime.fromisoformat(leg["kickoff"]).strftime("%d/%m %H:%M")
+            lines.append(f"  {index}. {leg['home']} – {leg['away']} ({kickoff}) | {leg['pick_label']} | {leg['probability']:.0%}")
+        lines.append("")
+    lines.append("⚠️ Prévisualisation hors ligne uniquement; aucune publication ou mise n'a été faite.")
     return "\n".join(lines)
 
 
