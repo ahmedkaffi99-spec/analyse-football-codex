@@ -11,6 +11,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections import deque
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -65,6 +66,8 @@ class ApiFootballClient:
         backoff_seconds: float = 1.0,
         opener: Callable[..., Any] | None = None,
         sleep: Callable[[float], None] = time.sleep,
+        requests_per_minute: int | None = None,
+        monotonic: Callable[[], float] = time.monotonic,
     ) -> None:
         key = (api_key if api_key is not None else os.environ.get("API_FOOTBALL_KEY", "")).strip()
         if not key:
@@ -81,6 +84,12 @@ class ApiFootballClient:
         self.backoff_seconds = backoff_seconds
         self._opener = opener or urllib.request.urlopen
         self._sleep = sleep
+        self._monotonic = monotonic
+        rpm = requests_per_minute if requests_per_minute is not None else self._env_rpm()
+        if isinstance(rpm, bool) or not isinstance(rpm, int) or not 1 <= rpm <= 300:
+            raise ValueError("requests_per_minute must be an integer between 1 and 300")
+        self.requests_per_minute = rpm
+        self._request_timestamps = deque()
         self.last_quota = QuotaSnapshot()
 
     def get(self, endpoint: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -97,6 +106,7 @@ class ApiFootballClient:
         )
 
         for attempt in range(self.max_retries + 1):
+            self._respect_rate_limit()
             try:
                 with self._opener(request, timeout=self.timeout) as response:
                     self._capture_quota(response.headers)
