@@ -7,6 +7,7 @@ from email.message import Message
 from football_analysis.api_football_client import (
     ApiFootballAuthError,
     ApiFootballClient,
+    ApiFootballDailyQuotaError,
     ApiFootballRateLimitError,
     ApiFootballResponseError,
 )
