@@ -2,6 +2,12 @@
 
 This document describes two migrated, deterministic helpers. Neither is called by the live daily pipeline. They consume supplied data only and do not place bets, publish Telegram messages, or write to external services.
 
+## API-Football quota handling
+
+Module: src/football_analysis/api_football_client.py
+
+The client now distinguishes daily quota exhaustion from transient HTTP 429 rate limits. A zero daily-remaining header or recognized daily-quota response text raises ApiFootballDailyQuotaError immediately without retry/sleep; other 429s retain bounded retry/backoff. The response body is used only for classification and is not included in the error message. The client remains explicitly call-driven; no provider request is made by tests.
+
 ## OddsPapi payload normalizer
 
 Module: src/football_analysis/oddspapi_normalizer.py
