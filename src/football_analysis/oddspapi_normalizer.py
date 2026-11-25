@@ -94,7 +94,8 @@ def normalize_oddspapi_payload(
                 selections.append({"selection": str(label), "odds": price})
                 diagnostics["outcomes_valid"] += 1
             if selections:
-                output.append({"market_id": str(market_id),
+                output.append({"fixture_id": str(event.get("fixtureId") or event.get("fixture_id") or "") or None,
+                              "bookmaker": str(book_key), "market_id": str(market_id),
                               "market": entry.get("name") or f"Market {market_id}",
                               "market_type": entry.get("type"),
                               "handicap": entry.get("handicap"),
