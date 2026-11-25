@@ -81,6 +81,8 @@ class OfflinePreviewAPITests(unittest.TestCase):
     def test_remote_binding_requires_token(self):
         with self.assertRaises(ValueError):
             run_server("0.0.0.0", 8000)
+        with self.assertRaises(ValueError):
+            run_server("0.0.0.0", 8000, "token")
 
 
 if __name__ == "__main__":
