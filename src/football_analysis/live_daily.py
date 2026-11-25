@@ -48,7 +48,10 @@ def supabase_request(table: str, *, method: str = "GET", params: str = "", paylo
         raise RuntimeError("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY")
     url = f"{base}/rest/v1/{table}" + (f"?{params}" if params else "")
     data = None if payload is None else json.dumps(payload).encode("utf-8")
-    headers = {"apikey": key, "Authorization": f"Bearer {key}", "Accept": "application/json"}
+    headers = {"apikey": key, "Accept": "application/json"}
+    # New Supabase sb_secret_* keys are opaque API keys, not JWTs; do not send them as Bearer.
+    if not key.startswith("sb_secret_"):
+        headers["Authorization"] = f"Bearer {key}"
     if data is not None:
         headers["Content-Type"] = "application/json"
     if prefer:
@@ -58,8 +61,11 @@ def supabase_request(table: str, *, method: str = "GET", params: str = "", paylo
         with urllib.request.urlopen(req, timeout=25) as response:
             raw = response.read().decode("utf-8")
             return json.loads(raw) if raw else None
-    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
-        raise RuntimeError(f"Supabase {method} {table} failed: {exc}") from exc
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", "replace")[:1000]
+        raise RuntimeError(f"Supabase {method} {table} failed: HTTP {exc.code}: {detail}") from None
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"Supabase {method} {table} failed: {exc.__class__.__name__}: {exc}") from exc
 
 
 def telegram_send(text: str) -> dict[str, Any]:
