@@ -52,6 +52,15 @@ class HistoricalModelSelectorTests(unittest.TestCase):
         self.assertEqual(results["1x2"]["decision"], "poisson")
         self.assertEqual(results["corners"]["decision"], "unavailable")
 
+    def test_stability_is_unknown_when_chronology_is_missing(self):
+        a = history("a", ["win", "win", "win", "loss"])
+        b = history("b", ["loss", "loss", "loss", "loss"])
+        for row in a + b:
+            row.pop("date")
+        result = compare_market(a, b, n_min=4)
+        self.assertEqual(result["decision"], "model_a")
+        self.assertIsNone(result["stable"])
+
     def test_bad_minimum_rejected(self):
         with self.assertRaises(ValueError):
             compare_market([], [], n_min=1)
