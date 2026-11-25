@@ -59,7 +59,7 @@ class OfflinePreviewAPITests(unittest.TestCase):
             conn.request("GET", "/health", headers={"Authorization": "Bearer local-secret"})
             response = conn.getresponse()
             self.assertEqual(response.status, 200)
-            self.assertFalse(json.loads(response.read())["telegram_publish"]]
+            self.assertFalse(json.loads(response.read())["telegram_publish"])
             payload = {"fixtures": [{"fixture_id": "f2", "home": "H", "away": "A",
                                     "home_expected_goals": 1.3, "away_expected_goals": 1.0}]}
             conn.request("POST", "/api/preview/1x2", json.dumps(payload),
