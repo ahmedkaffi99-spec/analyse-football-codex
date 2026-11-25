@@ -33,7 +33,7 @@ def blend_probability(model_probability: Any, market_probability: Any, *, weight
     try:
         model = float(model_probability)
         market = float(market_probability)
-    except (TypeTypeError, ValueError) as exc:
+    except (TypeError, ValueError) as exc:
         raise ValueError("model and market probabilities must be finite non-negative numbers") from exc
     if not isfinite(model) or not isfinite(market) or model < 0.0 or market < 0.0:
         raise ValueError("model and market probabilities must be finite non-negative numbers")
