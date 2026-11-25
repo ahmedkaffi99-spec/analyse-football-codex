@@ -24,7 +24,6 @@ def _request(table: str, rows: list[dict[str, Any]], *, conflict: str | None = N
     url = f"{base}/rest/v1/{table}{query}"
     headers = {
         "apikey": key,
-        "Authorization": f"Bearer {key}",
         "Content-Type": "application/json",
         "Prefer": "resolution=merge-duplicates,return=representation",
     }
