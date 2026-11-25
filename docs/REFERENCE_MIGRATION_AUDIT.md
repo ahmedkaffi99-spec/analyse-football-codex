@@ -11,7 +11,7 @@
 | API-Football fixtures/stat client | api_football_client.py, daily_api_pipeline.py | Ported; provider quota/coverage checks remain |
 | Odds collection and provider snapshots | collect_odds.py, provider_snapshot.py | Partial; source OddsPapi/provider-specific behaviours not fully parity-tested |
 | Market catalogue and probability math | markets.py, all_markets.py, poisson.py, probability.py | Ported/adapted; integer-line pushes and market-specific distributions remain gaps |
-| Features/team strengths | feature_engine.py, strengths.py | Partial; historical feature parity and calibration remain |
+| Features/team strengths | feature_engine.py, strengths.py, statistical_shrinkage.py | Count-market means now shrink toward source priors (k=5); historical feature parity, home-advantage corrections and calibration remain |
 | Market specialists / edge / value | market_agents.py, value_analysis.py, probability_blend.py | Partial; several source market families/LLM review rules not migrated |
 | Bookmaker no-vig consensus | bookmaker_consensus.py | Ported; input validation and duplicate-market handling hardened in this branch |
 | Coupon profile and risk | coupon_profiles.py, daily_bet_cap.py, risk_selection.py | Offline candidate filtering/preview ported; production family agents, selection constraints and daily cross-run dedupe need parity review |
