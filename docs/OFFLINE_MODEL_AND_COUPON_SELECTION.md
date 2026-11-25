@@ -38,6 +38,12 @@ Module: src/football_analysis/historical_model_selector.py
 
 Each row can use either target field names (probability, decimal_odds, result, date) or source-compatible French fields (proba_pct, cote, resultat, jour). Legacy proba_pct is interpreted as percentage. Outcomes accepted include win/won/gagne/gagné, loss/lost/perdu and push/refund/rembourse. Pushes are excluded from settled scoring and ROI. Rows without valid odds still contribute to graded sample and proper scoring metrics but not ROI.
 
+## Deterministic market-family taxonomy
+
+Module: src/football_analysis/market_families.py
+
+family_for_category and classify_market map result/double chance, total/team goals, BTTS, goal handicap, corners, cards, shots, fouls and offsides to stable family IDs. Unknown categories remain explicitly grouped as derived. group_candidates_by_family preserves candidate order for future specialist review. This ports taxonomy only; source AI specialist prompts, production facts, token budgeting and review-veto limits remain unimplemented.
+
 ## Count-stat Bayesian shrinkage
 
 Module: src/football_analysis/statistical_shrinkage.py
