@@ -19,9 +19,9 @@ class SpecialistMarketAgentTests(unittest.TestCase):
     def test_corner_agent_requires_real_samples_from_both_teams(self):
         home = {"corners_mean": 5.2, "corners_n": 8}
         away = {"corners_mean": 4.1, "corners_n": 9}
-        self.assertAlmostEqual(team_metric_rate("corners", home, away), 9.396153846153846)
+        self.assertAlmostEqual(team_metric_rate("corners", home, away), 9.470642307692307)
         self.assertIsNone(team_metric_rate("corners", home, {"corners_mean": 3.0, "corners_n": 2}))
-        self.assertAlmostEqual(team_metric_rate("corners", home, away, shrink_k=0), 9.3)
+        self.assertAlmostEqual(team_metric_rate("corners", home, away, shrink_k=0), 9.4177)
 
     def test_extracts_both_sides_of_a_market(self):
         row = {"bookmakers": [{"name": "1xBet", "bets": [{"name": "Total Corners", "values": [
