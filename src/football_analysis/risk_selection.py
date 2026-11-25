@@ -26,10 +26,12 @@ class RiskConfig:
     calibration_min_n: int = 30
 
     def __post_init__(self) -> None:
+        if any(isinstance(value, bool) or not isinstance(value, int) for value in (self.coupon_min, self.coupon_max)):
+            raise ValueError("coupon leg limits must be integers")
         if not 1 <= self.coupon_min <= self.coupon_max:
             raise ValueError("coupon leg limits must satisfy 1 <= min <= max")
-        if self.max_per_fixture < 1:
-            raise ValueError("max_per_fixture must be >= 1")
+        if isinstance(self.max_per_fixture, bool) or not isinstance(self.max_per_fixture, int) or self.max_per_fixture < 1:
+            raise ValueError("max_per_fixture must be an integer >= 1")
         if not isfinite(self.odds_min) or not isfinite(self.odds_max) or self.odds_min <= 1 or self.odds_max < self.odds_min:
             raise ValueError("invalid decimal-odds bounds")
         if not isfinite(self.probability_min) or not 0 <= self.probability_min <= 1:
@@ -39,8 +41,8 @@ class RiskConfig:
                 raise ValueError(f"{label} must be finite")
         if self.edge_min is not None and self.edge_max is not None and self.edge_min > self.edge_max:
             raise ValueError("edge_min must not exceed edge_max")
-        if self.calibration_min_n < 1:
-            raise ValueError("calibration_min_n must be >= 1")
+        if isinstance(self.calibration_min_n, bool) or not isinstance(self.calibration_min_n, int) or self.calibration_min_n < 1:
+            raise ValueError("calibration_min_n must be an integer >= 1")
 
 
 def _candidate_reasons(candidate: Mapping[str, Any], config: RiskConfig) -> list[str]:
@@ -51,6 +53,8 @@ def _candidate_reasons(candidate: Mapping[str, Any], config: RiskConfig) -> list
         reasons.append("missing fixture id")
     if not market:
         reasons.append("missing market label")
+    if not str(candidate.get("selection") or "").strip():
+        reasons.append("missing selection label")
     if not candidate.get("binary", False):
         reasons.append("market not confirmed binary (push/refund possible)")
     if config.allowed_markets and market not in config.allowed_markets:
