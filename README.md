@@ -70,6 +70,7 @@ The first feature version covers rolling goals and available xG, shots, corners 
 The migration branch also contains three adapted pure-Python research helpers:
 - `bookmaker_consensus`: no-vig bookmaker consensus, reference comparison and weighted books; malformed/incomplete market observations are ignored.
 - `oddspapi_normalizer`: offline adapter for raw OddsPapi fixture market payloads with price validation and missing-book/market diagnostics.
+- API-Football client classifies exhausted daily quota separately from retryable 429 rate limits.
 - `risk_selection`: deterministic candidate filters, rejection explanations, fixture cap and coupon preview; no execution.
 - `historical_model_selector`: per-market historical ROI comparison with Brier/log-loss/calibration/edge metrics and chronological stability diagnostic.
 - `statistical_shrinkage`: additive priors for count-stat rates and source-measured home/away count adjustments.
