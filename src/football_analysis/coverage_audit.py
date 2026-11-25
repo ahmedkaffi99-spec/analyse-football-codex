@@ -73,3 +73,38 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+def audit_pipeline_coverage(fixtures, odds_fixture_ids=(), market_fixture_ids=(),
+                           candidate_fixture_ids=(), selected_fixture_ids=(),
+                           exclusion_reasons=None):
+    """Trace fixture coverage across pipeline stages; inputs are fixture mappings with fixture_id.
+
+    Every discovered fixture gets a final status: selected, excluded (reason), no odds,
+    no markets, or no candidate. No external calls or persistence.
+    """
+    exclusion_reasons=exclusion_reasons or {}
+    indexed={}
+    for row in fixtures:
+        fid=str(row.get("fixture_id") or "").strip()
+        if not fid: raise ValueError("every fixture requires fixture_id")
+        if fid in indexed: raise ValueError(f"duplicate fixture_id: {fid}")
+        indexed[fid]=row
+    odds=set(map(str,odds_fixture_ids))
+    markets=set(map(str,market_fixture_ids))
+    candidates=set(map(str,candidate_fixture_ids))
+    selected=set(map(str,selected_fixture_ids))
+    report=[]
+    for fid,row in indexed.items():
+        if fid in selected: status="selected"; reason=None
+        elif fid in exclusion_reasons: status="excluded"; reason=str(exclusion_reasons[fid])
+        elif fid not in odds: status="missing_odds"; reason="No odds fixture matched"
+        elif fid not in markets: status="missing_markets"; reason="No usable markets"
+        elif fid not in candidates: status="no_candidates"; reason="Markets did not pass candidate filters"
+        else: status="not_selected"; reason="Candidate available but not selected"
+        report.append({"fixture_id":fid,"home":row.get("home"),"away":row.get("away"),
+                      "competition":row.get("competition"),"status":status,"reason":reason,
+                      "has_odds":fid in odds,"has_markets":fid in markets,
+                      "has_candidates":fid in candidates,"selected":fid in selected})
+    counts={}
+    for row in report: counts[row["status"]]=counts.get(row["status"],0)+1
+    return {"fixtures_total":len(report),"counts":counts,"fixtures":report}
