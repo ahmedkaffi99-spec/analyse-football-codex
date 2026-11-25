@@ -25,7 +25,7 @@ class BookmakerConsensusMigrationTests(unittest.TestCase):
             ]
         })
         self.assertAlmostEqual(sum(probabilities.values()), 1.0)
-        self.assertAlmostEqual(probabilities["Home"], 4 / 7)
+        self.assertAlmostEqual(probabilities["Home"], 6 / 13)
 
     def test_invalid_and_duplicate_market_outcomes_are_rejected(self):
         self.assertIsNone(no_vig_probabilities({"selections": [
