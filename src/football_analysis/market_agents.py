@@ -50,7 +50,8 @@ def team_metric_rate(market: str, home_stats: dict[str, Any], away_stats: dict[s
     a_adjusted = shrink_metric(market, a, an, shrink_k)
     if h_adjusted is None or a_adjusted is None:
         return None
-    h_adjusted, a_adjusted = apply_home_advantage(market, h_adjusted, a_adjusted)\n    return max(0.0, h_adjusted + a_adjusted)
+    h_adjusted, a_adjusted = apply_home_advantage(market, h_adjusted, a_adjusted)
+    return max(0.0, h_adjusted + a_adjusted)
 
 def win_to_nil_probability(home_xg: float, away_xg: float, selection: str) -> float:
     """Independent Poisson score-grid probability that a side wins without conceding."""
