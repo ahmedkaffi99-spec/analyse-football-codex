@@ -46,7 +46,7 @@ class BlendedValueAnalysisTests(unittest.TestCase):
         self.assertEqual(home_custom["market_weight"], 0.25)
         self.assertEqual(home_custom["model_probability"], home_default["model_probability"])
         self.assertEqual(home_custom["expected_value"], home_default["expected_value"])
-        self.assertNotEqual(home_custom["blended_probability"], home_default["blended_probability")
+        self.assertNotEqual(home_custom["blended_probability"], home_default["blended_probability"])
 
 
 if __name__ == "__main__":
