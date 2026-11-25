@@ -135,7 +135,7 @@ def make_handler(api_token: str | None = None):
                     result = preview_coupon(payload)
                 else:
                     result = preview_coverage(payload)
-            except (ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
+            except (ValueError, TypeError, KeyError, json.JSONDecodeError, UnicodeDecodeError) as exc:
                 return self._send(400, {"error": str(exc)})
             self._send(200, result)
 
