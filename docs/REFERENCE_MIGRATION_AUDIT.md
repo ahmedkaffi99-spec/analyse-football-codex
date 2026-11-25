@@ -14,8 +14,8 @@
 | Features/team strengths | feature_engine.py, strengths.py | Partial; historical feature parity and calibration remain |
 | Market specialists / edge / value | market_agents.py, value_analysis.py, probability_blend.py | Partial; several source market families/LLM review rules not migrated |
 | Bookmaker no-vig consensus | bookmaker_consensus.py | Ported; input validation and duplicate-market handling hardened in this branch |
-| Coupon profile and risk | coupon_profiles.py, daily_bet_cap.py | Partial; production family agents, selection constraints and daily cross-run dedupe need parity review |
-| Backtest and baseline evaluation | backtest.py, baseline_comparison.py, walk_forward.py | Ported foundation; production-path parity, historic datasets and calibration evaluation not complete |
+| Coupon profile and risk | coupon_profiles.py, daily_bet_cap.py, risk_selection.py | Offline candidate filtering/preview ported; production family agents, selection constraints and daily cross-run dedupe need parity review |
+| Backtest and baseline evaluation | backtest.py, baseline_comparison.py, walk_forward.py, historical_model_selector.py | Ported foundation plus offline per-market ROI/Brier/log-loss/calibration; production-path parity, historic datasets and out-of-sample calibration remain incomplete |
 | Daily orchestration | daily_pipeline.py, daily_api_pipeline.py | Adapted/offline-first; source production orchestrator/agent path not ported |
 | Persistence/database schema | supabase_persistence.py, SQL migrations | Foundation only; API/schema compatibility and offline persistence tests still needed |
 | Telegram output | telegram_publisher.py | Isolated/opt-in; real publishing remains disabled during migration |
@@ -32,7 +32,7 @@
 
 ### moteur/ and moteur_central/
 - Pure model contracts, feature calculations, Poisson/negative-binomial market math, specialist catalogue, calibration, backtest, profiles, deterministic selection and model-comparison shadow logic.
-- Target has the baseline model/market foundation and per-market value modules, but does not yet reproduce the source central shadow selector, per-market historical metrics/reporting, model registry/selection and all source specialists.
+- Target now has an offline per-market historical model selector with ROI, Brier, log-loss, calibration bins, edge and chronological stability checks. It is not wired into production selection; the full central shadow selector, model registry and all source specialists remain missing.
 
 ### backend/app/
 - FastAPI configuration, database models, auth/guards, routers for matches/coupons/runs, persistence, archives, stats, alerts, budgets, learning, scheduled verification and pipeline service adapters.
