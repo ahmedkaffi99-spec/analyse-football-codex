@@ -138,6 +138,26 @@ class ApiFootballClient:
                 raise ApiFootballError(f"API-Football network failure for {path}: {type(exc).__name__}") from exc
         raise ApiFootballError(f"API-Football request failed for {path}")
 
+    @staticmethod
+    def _env_rpm() -> int:
+        try:
+            value = int(os.environ.get("API_FOOTBALL_QUOTA_PER_MINUTE", "9"))
+        except (TypeError, ValueError):
+            value = 9
+        return min(max(value, 1), 300)
+
+    def _respect_rate_limit(self) -> None:
+        now = self._monotonic()
+        while self._request_timestamps and now - self._request_timestamps[0] >= 60.0:
+            self._request_timestamps.popleft()
+        while len(self._request_timestamps) >= self.requests_per_minute:
+            delay = max(0.0, 60.0 - (now - self._request_timestamps[0]) + 0.5)
+            self._sleep(delay)
+            now = self._monotonic()
+            while self._request_timestamps and now - self._request_timestamps[0] >= 60.0:
+                self._request_timestamps.popleft()
+        self._request_timestamps.append(self._monotonic())
+
     def _capture_quota(self, headers: Any) -> None:
         self.last_quota = QuotaSnapshot(
             daily_limit=_int_header(headers, "x-ratelimit-requests-limit"),
