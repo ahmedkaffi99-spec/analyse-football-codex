@@ -20,6 +20,10 @@ class HistoricalModelSelectorTests(unittest.TestCase):
         self.assertTrue(result["stable"])
         self.assertAlmostEqual(result["model_a"]["roi"], 0.5)
         self.assertAlmostEqual(result["model_b"]["roi"], -1.0)
+        self.assertAlmostEqual(result["model_a"]["brier"], 0.21)
+        self.assertAlmostEqual(result["model_a"]["mean_edge"], 0.2)
+        self.assertIsNotNone(result["model_a"]["log_loss"])
+        self.assertTrue(result["model_a"]["calibration"])
 
     def test_insufficient_samples_do_not_produce_a_decision(self):
         result = compare_market(history("a", ["win", "loss"]), history("b", ["loss", "win"]), n_min=5)
