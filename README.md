@@ -72,6 +72,9 @@ The migration branch also contains three adapted pure-Python research helpers:
 - `risk_selection`: deterministic candidate filters, rejection explanations, fixture cap and coupon preview; no execution.
 - `historical_model_selector`: per-market historical ROI comparison with Brier/log-loss/calibration/edge metrics and chronological stability diagnostic.
 - `statistical_shrinkage`: additive priors for count-stat rates and source-measured home/away count adjustments.
+- `preview_api`: local-only HTTP facade for 1X2 prediction previews, coupon risk previews and fixture-coverage audits; it has no database writes or publishing routes.
+
+Run the preview API on loopback only: `python -m football_analysis.preview_api --host 127.0.0.1 --port 8000`. Routes and security limits are documented in [docs/OFFLINE_MODEL_AND_COUPON_SELECTION.md](docs/OFFLINE_MODEL_AND_COUPON_SELECTION.md).
 
 These helpers are not wired into production daily selection. Their input contracts and limitations are documented in [docs/OFFLINE_MODEL_AND_COUPON_SELECTION.md](docs/OFFLINE_MODEL_AND_COUPON_SELECTION.md). The source-to-target coverage and missing modules are tracked in [docs/REFERENCE_MIGRATION_AUDIT.md](docs/REFERENCE_MIGRATION_AUDIT.md). Full production-path parity is still in progress; do not treat preview output as a betting recommendation.
 
