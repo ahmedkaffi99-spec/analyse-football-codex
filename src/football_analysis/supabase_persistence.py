@@ -59,7 +59,7 @@ def persist_collection(*, report: dict[str, Any], fixture_rows: list[dict[str, A
         "run_key": run_key, "status": "running",
         "metadata": {"local_date": report.get("local_date"), "bookmaker": "1xBet",
                      "market_weight": report.get("market_weight", 0.65)},
-    }])
+    }], conflict="run_key")
     try:
         # Include today's priority fixtures and all unique completed history fixtures.
         all_rows: dict[str, dict[str, Any]] = {}
