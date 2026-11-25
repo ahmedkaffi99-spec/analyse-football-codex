@@ -2,6 +2,12 @@
 
 This document describes two migrated, deterministic helpers. Neither is called by the live daily pipeline. They consume supplied data only and do not place bets, publish Telegram messages, or write to external services.
 
+## OddsPapi payload normalizer
+
+Module: src/football_analysis/oddspapi_normalizer.py
+
+normalize_oddspapi_payload(raw_payload, market_catalog, bookmaker="1xbet") accepts already captured provider JSON and catalogue mappings. It preserves raw market/outcome labels, validates decimal prices (>1 and finite), supports a list of events or one event, and reports events, bookmaker, market and outcome counts plus invalid prices. Status distinguishes no events, no bookmaker, no markets, no usable prices and success. It performs no network access; the OddsPapi API collector, quotas and retry logic are still unmigrated.
+
 ## Local preview API
 
 Module: src/football_analysis/preview_api.py
