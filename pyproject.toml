@@ -9,5 +9,8 @@ description = "Independent, offline-first football probability evaluation and ba
 requires-python = ">=3.11"
 dependencies = ["tzdata>=2024.1"]
 
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
