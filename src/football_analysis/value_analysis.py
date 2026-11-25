@@ -5,18 +5,22 @@ import re
 from typing import Any
 from .all_markets import extract_market_predictions
 from .market_agents import count_market_probability, team_metric_rate, win_to_nil_probability, dnb_probabilities
+from .probability_blend import DEFAULT_MARKET_WEIGHT, blend_probability, validate_market_weight
+
 
 def _poisson_pmf(lam: float, k: int) -> float:
     if lam < 0: return 0.0
     return math.exp(-lam) * lam**k / math.factorial(k) if lam else float(k == 0)
 
+
 def _line_from_selection(selection: str, fallback: Any) -> float | None:
     if fallback is not None:
         try: return float(fallback)
-        except (TypeError,ValueError): pass
+        except (TypeError, ValueError): pass
     match = re.search(r"(?<![A-Za-z])([+-]?\d+(?:[.,]\d+)?)", selection)
     try: return float(match.group(1).replace(",", ".")) if match else None
-    except (TypeError,ValueError): return None
+    except (TypeError, ValueError): return None
+
 
 def _total_goals_probability(home_xg: float, away_xg: float, selection: str, line: float) -> float | None:
     if not (0 <= home_xg <= 8 and 0 <= away_xg <= 8): return None
@@ -28,6 +32,7 @@ def _total_goals_probability(home_xg: float, away_xg: float, selection: str, lin
             if "over" in selection.casefold() and goals > line: total += _poisson_pmf(home_xg,h)*_poisson_pmf(away_xg,a)
             elif "under" in selection.casefold() and goals < line: total += _poisson_pmf(home_xg,h)*_poisson_pmf(away_xg,a)
     return max(0.0,min(1.0,total))
+
 
 def _scoreline_probability(home_xg: float, away_xg: float, selection: str, market: str) -> float | None:
     label=selection.casefold()
@@ -47,6 +52,7 @@ def _scoreline_probability(home_xg: float, away_xg: float, selection: str, marke
                 if adjusted > 0: p += _poisson_pmf(home_xg,h)*_poisson_pmf(away_xg,a)
         return max(0.0,min(1.0,p))
     return None
+
 
 def _model_probability(market: str, selection: str, line: Any, model_1x2: dict[str,float],
                        home_xg: float, away_xg: float, market_stats: dict[str,Any]) -> float | None:
@@ -80,14 +86,19 @@ def _model_probability(market: str, selection: str, line: Any, model_1x2: dict[s
         return _scoreline_probability(home_xg,away_xg,selection,market)
     return None
 
+
 def score_market_predictions(odds_row: dict[str,Any], *, model_1x2: dict[str,float],
                              home_xg: float, away_xg: float,
-                             market_stats: dict[str,Any] | None = None) -> list[dict[str,Any]]:
-    """Score all exposed 1xBet outcomes with family-specific probability models.
+                             market_stats: dict[str,Any] | None = None,
+                             market_weight: float = DEFAULT_MARKET_WEIGHT) -> list[dict[str,Any]]:
+    """Score 1xBet outcomes with family-specific models and an explicit blend.
 
     Count markets use their own recent-stat samples; unsupported or insufficient
     samples remain unscored instead of receiving fabricated edge/EV values.
+    Pure-model edge/EV are preserved for diagnostics. The blended probability
+    and EV are reported separately using the reference weight (0.65 by default).
     """
+    market_weight = validate_market_weight(market_weight)
     market_stats=market_stats or {}
     scored=[]
     for market in extract_market_predictions(odds_row):
@@ -98,12 +109,16 @@ def score_market_predictions(odds_row: dict[str,Any], *, model_1x2: dict[str,flo
             model_1x2,home_xg,away_xg,market_stats)
         item={**market,"market_probability":round(float(p_market),6),"model_probability":None,
               "edge":None,"edge_pct_points":None,"expected_value":None,
+              "blended_probability":None,"blended_expected_value":None,"market_weight":market_weight,
               "value_status":"insufficient_market_specific_data"}
         if p_model is not None and 0 <= p_model <= 1:
             edge=p_model-float(p_market)
             ev=p_model*float(market["odds"])-1
+            blended=blend_probability(p_model,p_market,weight=market_weight)
+            blended_ev=blended*float(market["odds"])-1
             item.update(model_probability=round(p_model,6),edge=round(edge,6),
                 edge_pct_points=round(edge*100,2),expected_value=round(ev,6),
+                blended_probability=round(blended,6),blended_expected_value=round(blended_ev,6),
                 value_status="positive_ev" if ev>0 else "negative_ev")
         scored.append(item)
     return sorted(scored,key=lambda item:(item["expected_value"] is None,
