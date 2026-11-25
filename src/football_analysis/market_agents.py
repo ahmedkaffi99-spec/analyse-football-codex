@@ -5,7 +5,8 @@ Missing samples stay unsupported; no fallback statistics are fabricated.
 """
 from __future__ import annotations
 import math
-from typing import Any\nfrom .statistical_shrinkage import shrink_metric
+from typing import Any
+from .statistical_shrinkage import shrink_metric
 
 COUNT_MARKETS = {
     "corners": ("corners_mean",),
