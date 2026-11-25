@@ -25,12 +25,19 @@ class RiskSelectionTests(unittest.TestCase):
         self.assertTrue(any("fixture already represented" in row["rejection_reasons"][0]
                           for row in report["rejected"]))
 
+    def test_duplicate_pick_key_rejected_even_when_fixture_cap_allows_two(self):
+        rows = [candidate("m1", .7), candidate("m1", .6), candidate("m2", .65)]
+        report = select_coupon_preview(rows, RiskConfig(coupon_min=2, coupon_max=3, max_per_fixture=2))
+        self.assertTrue(report["generated"])
+        self.assertEqual(len(report["selections"]), 2)
+        self.assertTrue(any("duplicate pick key" in row["rejection_reasons"][0] for row in report["rejected"]))
+
     def test_non_binary_invalid_probability_and_odds_are_rejected(self):
         rows = [candidate("m1", .7, binary=False), candidate("m2", 1.2),
                 candidate("m3", .5, odds=1.0)]
         report = select_coupon_preview(rows, RiskConfig(coupon_min=1, coupon_max=3))
-        self.assertTrue(report["generated"])
-        self.assertEqual(len(report["selections"]), 0 if not report["generated"] else 0)
+        self.assertFalse(report["generated"])
+        self.assertEqual(report["selections"], [])
         self.assertEqual(len(report["rejected"]), 3)
 
     def test_allowlist_edge_and_probability_filters(self):
