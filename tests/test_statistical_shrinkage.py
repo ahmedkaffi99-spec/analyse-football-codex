@@ -1,6 +1,6 @@
 import unittest
 
-from football_analysis.statistical_shrinkage import DEFAULT_PRIORS, shrink_mean, shrink_metric
+from football_analysis.statistical_shrinkage import DEFAULT_PRIORS, apply_home_advantage, shrink_mean, shrink_metric
 
 
 class StatisticalShrinkageTests(unittest.TestCase):
@@ -24,7 +24,16 @@ class StatisticalShrinkageTests(unittest.TestCase):
         self.assertIsNone(shrink_mean(float("nan"), 5, 4.8))
         self.assertIsNone(shrink_mean(4.5, 5, float("nan")))
 
-    def test_registered_and_unregistered_metric_behavior(self):
+    def test_home_advantage_adjusts_supported_metrics_and_conserves_equal_rates(self):
+        home, away = apply_home_advantage("corners", 5.0, 5.0)
+        self.assertAlmostEqual(home, 5.0 * 1.107)
+        self.assertAlmostEqual(away, 5.0 * (2 - 1.107))
+        self.assertAlmostEqual(home + away, 10.0)
+        self.assertEqual(apply_home_advantage("red_cards", 3.0, 4.0), (3.0, 4.0))
+        with self.assertRaises(ValueError):
+            apply_home_advantage("corners", -1.0, 4.0)
+
+    def test_registered_and_unregistered_metric_behavior(selfself):
         self.assertAlmostEqual(shrink_metric("corners", 6, 5), (6 * 5 + DEFAULT_PRIORS["corners"] * 5) / 10)
         self.assertEqual(shrink_metric("red_cards", 0.1, 5), 0.1)
 
