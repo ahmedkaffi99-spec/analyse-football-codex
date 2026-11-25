@@ -51,6 +51,13 @@ class RiskSelectionTests(unittest.TestCase):
         self.assertEqual([row["fixture_id"] for row in report["selections"]], ["m5"])
         self.assertEqual(len(report["rejected"]), 4)
 
+    def test_missing_pick_label_rejected(self):
+        row = candidate("m1", .7)
+        row.pop("selection")
+        report = select_coupon_preview([row], RiskConfig(coupon_min=1, coupon_max=1))
+        self.assertFalse(report["generated"])
+        self.assertIn("missing selection label", report["rejected"][0]["rejection_reasons"])
+
     def test_calibration_requirement_and_insufficient_coupon(self):
         config = RiskConfig(coupon_min=2, coupon_max=3, require_calibration=True, calibration_min_n=30)
         rows = [candidate("m1", .7), candidate("m2", .7)]
@@ -64,6 +71,8 @@ class RiskSelectionTests(unittest.TestCase):
             RiskConfig(coupon_min=3, coupon_max=2)
         with self.assertRaises(ValueError):
             RiskConfig(odds_min=1.0)
+        with self.assertRaises(ValueError):
+            RiskConfig(coupon_min=True)
 
 
 if __name__ == "__main__":
