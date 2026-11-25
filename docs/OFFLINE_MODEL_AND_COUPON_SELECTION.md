@@ -18,7 +18,7 @@ Each row can use either target field names (probability, decimal_odds, result, d
 
 Module: src/football_analysis/statistical_shrinkage.py
 
-The migrated count-market rate now shrinks each team's measured recent mean toward the source prior using five pseudo-observations by default. This reduces the influence of extreme small samples and still requires both teams to have at least three observed matches in market_agents.py. Passing shrink_k=0 to team_metric_rate disables the shrinkage for an offline comparison. Metrics without a registered prior (currently red cards) remain raw rather than using a fabricated prior. Prior values and k are not yet recalibrated on the target's historical data.
+The migrated count-market rate now shrinks each team's measured recent mean toward the source prior using five pseudo-observations by default. This reduces the influence of extreme small samples and still requires both teams to have at least three observed matches in market_agents.py. Passing shrink_k=0 to team_metric_rate disables the shrinkage for an offline comparison. Metrics without a registered prior (currently red cards) remain raw rather than using a fabricated prior. Supported count markets also apply the source-measured venue multiplier to the home rate and its complement to the away rate, preserving the sum for equal means. Prior values, venue multipliers and k are not yet independently recalibrated on the target's historical data.
 
 ## Coupon risk preview
 
