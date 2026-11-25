@@ -60,7 +60,7 @@ def _metrics(rows: Sequence[Mapping[str, Any]], n_min: int) -> dict[str, Any]:
     scored = [(row["_probability"], 1 if row["_outcome"] == "win" else 0) for row in settled]
     brier = sum((probability - actual) ** 2 for probability, actual in scored) / len(scored) if scored else None
     epsilon = 1e-15
-    log_loss = (sum(-actual * log(max(probability, epsilon)) -(1 - actual) * log(max(1 - probability, epsilon)) for probability, actual in scored) / len(scored) if scored else None
+    log_loss = (\n        sum(\n            -actual * log(max(probability, epsilon))\n            -(1 - actual) * log(max(1 - probability, epsilon))\n            for probability, actual in scored\n        ) / len(scored) if scored else None\n    )
     calibration = []
     for index in range(10):
         lower, upper = index / 10, (index + 1) / 10
