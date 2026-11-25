@@ -7,7 +7,7 @@ based on ROI, with chronological split stability reported separately.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from math import isfinite
+from math import isfinite, log
 from typing import Any
 
 RESULTS = {
@@ -60,7 +60,7 @@ def _metrics(rows: Sequence[Mapping[str, Any]], n_min: int) -> dict[str, Any]:
     scored = [(row["_probability"], 1 if row["_outcome"] == "win" else 0) for row in settled]
     brier = sum((probability - actual) ** 2 for probability, actual in scored) / len(scored) if scored else None
     epsilon = 1e-15
-    log_loss = (sum(-actual * __import__("math").log(max(probability, epsilon))
+    log_loss = (sum(-actual * log(max(probability, epsilon))
                      -(1 - actual) * __import__("math").log(max(1 - probability, epsilon)))
                      for probability, actual in scored) / len(scored) if scored else None
     calibration = []
