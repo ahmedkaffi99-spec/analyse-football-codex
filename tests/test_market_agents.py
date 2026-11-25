@@ -12,7 +12,7 @@ class SpecialistMarketAgentTests(unittest.TestCase):
         self.assertAlmostEqual(mean, rate, places=5)
         self.assertAlmostEqual(second - mean * mean, variance, places=4)
 
-    def test_count_market_uses_overdispersion_when_variance_supplied(selfself):
+    def test_count_market_uses_overdispersion_when_variance_supplied(self):
         over_nb = count_market_probability(10.0, "Over 8.5", 8.5, variance=13.5)
         under_nb = count_market_probability(10.0, "Under 8.5", 8.5, variance=13.5)
         over_poisson = count_market_probability(10.0, "Over 8.5", 8.5)
